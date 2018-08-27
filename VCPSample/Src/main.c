@@ -52,7 +52,7 @@
 #include "usb_device.h"
 
 /* USER CODE BEGIN Includes */
-
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -150,7 +150,9 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
+	static char str[] = "CDC Hello World!\n";
+	CDC_Transmit_FS((uint8_t*)str, strlen(str));
+	HAL_Delay(500);
   }
   /* USER CODE END 3 */
 

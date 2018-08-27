@@ -251,7 +251,13 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
   /* 6      | bDataBits  |   1   | Number Data bits (5, 6, 7, 8 or 16).          */
   /*******************************************************************************/
     case CDC_SET_LINE_CODING:
-
+	{
+		volatile USBD_CDC_LineCodingTypeDef *lineCoding = (USBD_CDC_LineCodingTypeDef*)pbuf;
+		printf("bitrate    : %x\n", lineCoding->bitrate);
+		printf("format     : %x\n", lineCoding->format);
+		printf("datatype   : %x\n", lineCoding->datatype);
+		printf("paritytype : %x\n", lineCoding->paritytype);
+	}
     break;
 
     case CDC_GET_LINE_CODING:
