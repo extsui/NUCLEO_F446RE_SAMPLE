@@ -102,6 +102,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+int g_VCPRxEvent = 0;
+
+uint8_t g_VCPRxBuffer[64];
+uint16_t g_VCPRxLength = 0;
+
+void VCP_ReceivedCallback(uint8_t *buf, uint16_t len)
+{
+	memcpy(g_VCPRxBuffer, buf, len);
+	g_VCPRxLength = len;
+	g_VCPRxEvent = 1;
+}
 
 /* USER CODE END 0 */
 
@@ -140,6 +151,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start_IT(&htim2);
 	printf("Hello World!\n");
+	
+	static char str[] = "CDC Hello World!\n";
+	CDC_Transmit_FS((uint8_t*)str, strlen(str));
+	HAL_Delay(500);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -150,9 +165,15 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-	static char str[] = "CDC Hello World!\n";
-	CDC_Transmit_FS((uint8_t*)str, strlen(str));
-	HAL_Delay(500);
+	  if (g_VCPRxEvent) {
+		  g_VCPRxEvent = 0;
+		  // エコーバック
+		  CDC_Transmit_FS(g_VCPRxBuffer, g_VCPRxLength);
+		  
+		  // UART非同期だと間に合わなくなった
+		  //HAL_UART_Transmit_IT(&huart2, g_VCPRxBuffer, g_VCPRxLength);
+		  HAL_UART_Transmit(&huart2, g_VCPRxBuffer, g_VCPRxLength, 0xFFFF);
+	  }
   }
   /* USER CODE END 3 */
 
