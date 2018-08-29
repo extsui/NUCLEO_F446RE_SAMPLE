@@ -1,2 +1,10 @@
 *.git
 *.mxproject
+*/MDK-ARM/DebugConfig/
+*/MDK-ARM/*.scvd
+*/MDK-ARM/*.uvguix.*
+*/MDK-ARM/RTE/
+*/MDK-ARM/*.lst
+
+*/MDK-ARM/FreeRTOSTest/
+*/MDK-ARM/VCPSample/
