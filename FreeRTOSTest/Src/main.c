@@ -79,7 +79,19 @@ void StartLedTask(void const * argument);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+#ifdef __GNUC__
+#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif /* __GNUC__ */
+PUTCHAR_PROTOTYPE
+{
+  /* Place your implementation of fputc here */
+  /* e.g. write a character to the USART1 and Loop until the end of transmission */
+  HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
 
+  return ch;
+}
 /* USER CODE END 0 */
 
 /**
@@ -290,7 +302,8 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	printf("Tick = %d\n", HAL_GetTick());
+    osDelay(1000);
   }
   /* USER CODE END 5 */ 
 }
@@ -302,7 +315,8 @@ void StartLedTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	osDelay(500);
   }
   /* USER CODE END StartLedTask */
 }
