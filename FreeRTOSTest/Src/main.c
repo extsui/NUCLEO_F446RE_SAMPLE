@@ -59,11 +59,13 @@
 UART_HandleTypeDef huart2;
 
 osThreadId defaultTaskHandle;
-osThreadId LedTaskHandle;
+osThreadId ledTaskHandle;
+osMessageQId uartRxQueueHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+// UART受信データ
+uint8_t g_UartRxData = 0x00;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -145,13 +147,19 @@ int main(void)
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
-  /* definition and creation of LedTask */
-  osThreadDef(LedTask, StartLedTask, osPriorityAboveNormal, 0, 128);
-  LedTaskHandle = osThreadCreate(osThread(LedTask), NULL);
+  /* definition and creation of ledTask */
+  osThreadDef(ledTask, StartLedTask, osPriorityAboveNormal, 0, 128);
+  ledTaskHandle = osThreadCreate(osThread(ledTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
+
+  /* Create the queue(s) */
+  /* definition and creation of uartRxQueue */
+/* what about the sizeof here??? cd native code */
+  osMessageQDef(uartRxQueue, 128, uint8_t);
+  uartRxQueueHandle = osMessageCreate(osMessageQ(uartRxQueue), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -291,6 +299,18 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if (huart->Instance == USART2) {
+		uint8_t rxData = g_UartRxData;
+		portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
+		// 1バイト単位受信の影響か、複数バイト一気に送信するとすぐハングする。
+		// queue.hのサンプル見ると複数バイトまとめてをキューに移動するのが通常用途の可能性あり。
+		xQueueSendFromISR(uartRxQueueHandle, &rxData, &xHigherPriorityTaskWoken);
+		HAL_UART_Receive_IT(&huart2, &g_UartRxData, 1);
+		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+	}
+}
 
 /* USER CODE END 4 */
 
@@ -299,11 +319,16 @@ void StartDefaultTask(void const * argument)
 {
 
   /* USER CODE BEGIN 5 */
+	// UART受信開始(以降、UART受信割込みハンドラで継続)
+	HAL_UART_Receive_IT(&huart2, &g_UartRxData, 1);
   /* Infinite loop */
   for(;;)
   {
-	printf("Tick = %d\n", HAL_GetTick());
-    osDelay(1000);
+	uint8_t rxData = 0;
+	// 受信するまでスリープ
+	if (xQueueReceive(uartRxQueueHandle, &rxData, portMAX_DELAY)) {
+		printf("%c", rxData);
+	}
   }
   /* USER CODE END 5 */ 
 }
