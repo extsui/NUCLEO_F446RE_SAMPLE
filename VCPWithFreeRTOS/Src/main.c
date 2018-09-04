@@ -53,7 +53,7 @@
 #include "usb_device.h"
 
 /* USER CODE BEGIN Includes */
-
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -83,6 +83,29 @@ void StartVcpDriverTask(void const * argument);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+#ifdef __GNUC__
+#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif /* __GNUC__ */
+PUTCHAR_PROTOTYPE
+{
+  /* Place your implementation of fputc here */
+  /* e.g. write a character to the USART1 and Loop until the end of transmission */
+  HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
+
+  return ch;
+}
+
+void VCP_ReceivedCallback(uint8_t *buf, uint16_t len)
+{
+	int i;
+	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
+	for (i = 0; i < len; i++) {
+		xQueueSendFromISR(queueVcpRxHandle, (uint8_t*)&buf[i], &xHigherPriorityTaskWoken);
+	}
+	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
 
 /* USER CODE END 0 */
 
@@ -301,7 +324,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+static int g_TotalReceivedSize = 0;
 /* USER CODE END 4 */
 
 /* StartDefaultTask function */
@@ -326,7 +349,9 @@ void StartLedTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	printf("%d\n", g_TotalReceivedSize);
+	osDelay(3000);
   }
   /* USER CODE END StartLedTask */
 }
@@ -338,6 +363,29 @@ void StartVcpDriverTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
+	int i;
+	int len = 0;
+	static uint8_t uartTxBuff[512];
+	
+	len = uxQueueMessagesWaiting(queueVcpRxHandle);
+	
+	if (len >= 1) {
+		for (i = 0; i < len; i++) {
+			xQueueReceive(queueVcpRxHandle, &uartTxBuff[i], 0);
+		}
+		//uartTxBuff[i] = '\0';
+		
+		// VCPへのエコーバック
+		//CDC_Transmit_FS(uartTxBuff, len);
+		
+		// 通信エラー確認用
+		g_TotalReceivedSize += len;
+		
+		// 受信毎にサイズを出力
+		// ※有効化するとVCPの通信速度が低下する
+		//printf("%d\n", len);
+	}
+	
     osDelay(1);
   }
   /* USER CODE END StartVcpDriverTask */
