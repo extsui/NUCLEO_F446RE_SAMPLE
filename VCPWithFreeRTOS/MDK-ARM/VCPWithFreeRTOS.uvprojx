@@ -435,6 +435,11 @@
               <FileType>1</FileType>
               <FilePath>../Src/stm32f4xx_hal_timebase_TIM.c</FilePath>
             </File>
+            <File>
+              <FileName>command.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\command.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

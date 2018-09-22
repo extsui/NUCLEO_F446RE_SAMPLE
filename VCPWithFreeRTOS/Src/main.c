@@ -365,25 +365,27 @@ void StartVcpDriverTask(void const * argument)
   {
 	int i;
 	int len = 0;
-	static uint8_t uartTxBuff[512];
+	static int rxCmdBuffIndex = 0;
+	static uint8_t rxCmdBuff[512];
 	
 	len = uxQueueMessagesWaiting(queueVcpRxHandle);
 	
 	if (len >= 1) {
 		for (i = 0; i < len; i++) {
-			xQueueReceive(queueVcpRxHandle, &uartTxBuff[i], 0);
+			xQueueReceive(queueVcpRxHandle, &rxCmdBuff[rxCmdBuffIndex], 0);
+			rxCmdBuffIndex++;
+			
+			// コマンド受信完了
+			if (rxCmdBuff[rxCmdBuffIndex-1] == '\n') {
+				extern void Command_exec(const char *rxCmdBuff);
+				Command_exec((const char*)rxCmdBuff);
+				
+				// 次のコマンド受信待機
+				memset(rxCmdBuff, 0, sizeof(rxCmdBuff));
+				rxCmdBuffIndex = 0;
+				break;
+			}
 		}
-		//uartTxBuff[i] = '\0';
-		
-		// VCPへのエコーバック
-		//CDC_Transmit_FS(uartTxBuff, len);
-		
-		// 通信エラー確認用
-		g_TotalReceivedSize += len;
-		
-		// 受信毎にサイズを出力
-		// ※有効化するとVCPの通信速度が低下する
-		//printf("%d\n", len);
 	}
 	
     osDelay(1);
