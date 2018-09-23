@@ -110,8 +110,10 @@ static void cmdInstruct(const char *s)
 		data_all[i] = atoh(s[i*2], s[i*2 + 1]);
 	}
 	
-	// TODO: data_allを使用すること
-	data_all[0] = data_all[1];
+	extern SPI_HandleTypeDef hspi2;
+	HAL_SPI_Transmit(&hspi2, data_all, sizeof(data_all), 0xFFFF);
+	delay_us(150);
+	//osDelay(2);
 	
 	g_CmdRxCount++;
 	PRINTF("%d\n", g_CmdRxCount);
@@ -119,7 +121,10 @@ static void cmdInstruct(const char *s)
 
 static void cmdUpdate(const char *s)
 {
-	PRINTF("Not Implemented.\n");
+	osDelay(2);
+	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);
+	delay_us(10);
+	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
 }
 
 static void cmdHelp(const char *s)
@@ -197,18 +202,18 @@ static void cmdDebug(const char *s)
 	
 	for (i = 0; i < 6; i++) {
 		HAL_SPI_Transmit(&hspi2, txBuff_display, sizeof(txBuff_display), 0xFFFF);
-		delay_us(150);
+		delay_us(150 * 2);
 	}
 	osDelay(2);
 	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);
 	delay_us(10);
 	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
 	
-	osDelay(1);
+	osDelay(2);
 	
 	for (i = 0; i < 6; i++) {
 		HAL_SPI_Transmit(&hspi2, txBuff_brightness, sizeof(txBuff_brightness), 0xFFFF);
-		delay_us(150);
+		delay_us(150 * 2);
 	}
 	osDelay(2);
 	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);

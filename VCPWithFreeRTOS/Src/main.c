@@ -453,7 +453,7 @@ void StartVcpDriverTask(void const * argument)
 		}
 	}
 	
-    osDelay(1);
+    osDelay(0);//osDelay(1);
   }
   /* USER CODE END StartVcpDriverTask */
 }
