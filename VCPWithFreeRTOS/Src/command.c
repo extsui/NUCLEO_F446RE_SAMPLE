@@ -3,6 +3,8 @@
 #include <stdlib.h> /* strtol() */
 #include <stdint.h>
 #include "main.h"
+#include "stm32f4xx_hal.h"
+#include "cmsis_os.h"
 
 /************************************************************
  *  define
@@ -178,6 +180,40 @@ static void cmdDebug(const char *s)
 	if (pnum != 2) {
 		return;
 	}
+	
+	static uint8_t txBuff_display[36] = {
+		0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	};
+	static uint8_t txBuff_brightness[36] = {
+		0x02, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
+		0x02, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
+		0x02, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
+		0x02, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
+	};
+	extern SPI_HandleTypeDef hspi2;
+	
+	for (i = 0; i < 6; i++) {
+		HAL_SPI_Transmit(&hspi2, txBuff_display, sizeof(txBuff_display), 0xFFFF);
+		delay_us(150);
+	}
+	osDelay(2);
+	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);
+	delay_us(10);
+	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
+	
+	osDelay(1);
+	
+	for (i = 0; i < 6; i++) {
+		HAL_SPI_Transmit(&hspi2, txBuff_brightness, sizeof(txBuff_brightness), 0xFFFF);
+		delay_us(150);
+	}
+	osDelay(2);
+	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);
+	delay_us(10);
+	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
 }
 
 static void cmdReboot(const char *s)

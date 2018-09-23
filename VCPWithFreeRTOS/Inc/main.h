@@ -85,6 +85,7 @@
 
 /* USER CODE BEGIN Private defines */
 #include <stdio.h>
+#include <stdint.h>
 
 typedef enum {
 	FALSE = 0,
@@ -94,6 +95,8 @@ typedef enum {
 #define PRINTF(...)	printf(__VA_ARGS__)
 
 #define ARRAY_SIZE(x)	(sizeof(x)/sizeof(x[0]))
+
+void delay_us(uint32_t usec);
 
 /* USER CODE END Private defines */
 
