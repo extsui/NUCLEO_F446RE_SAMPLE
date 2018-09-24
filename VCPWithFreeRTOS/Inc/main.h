@@ -84,19 +84,6 @@
 /* #define USE_FULL_ASSERT    1U */
 
 /* USER CODE BEGIN Private defines */
-#include <stdio.h>
-#include <stdint.h>
-
-typedef enum {
-	FALSE = 0,
-	TRUE  = 1,
-} boolean_t;
-
-#define PRINTF(...)	printf(__VA_ARGS__)
-
-#define ARRAY_SIZE(x)	(sizeof(x)/sizeof(x[0]))
-
-void delay_us(uint32_t usec);
 
 /* USER CODE END Private defines */
 

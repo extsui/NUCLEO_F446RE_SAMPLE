@@ -54,6 +54,7 @@
 
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
+#include "user.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -65,6 +66,7 @@ osThreadId defaultTaskHandle;
 osThreadId ledTaskHandle;
 osThreadId vcpDriverTaskHandle;
 osMessageQId queueVcpRxHandle;
+osMessageQId queueLedTxHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -98,34 +100,6 @@ PUTCHAR_PROTOTYPE
   HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
 
   return ch;
-}
-
-// 参考: https://qiita.com/takoke/items/9e53fe12d48caa49cd40
-void delay_us(uint32_t usec)
-{
-    while(usec > 0) {
-        // NOP168回@168MHz≒1us
-		//実際はループ処理がある。実測でdelay_us(100)≒102us。
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-		__asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP"); __asm("NOP");
-        usec--;
-    }
 }
 
 void VCP_ReceivedCallback(uint8_t *buf, uint16_t len)
@@ -208,6 +182,11 @@ int main(void)
 /* what about the sizeof here??? cd native code */
   osMessageQDef(queueVcpRx, 512, uint8_t);
   queueVcpRxHandle = osMessageCreate(osMessageQ(queueVcpRx), NULL);
+
+  /* definition and creation of queueLedTx */
+/* what about the sizeof here??? cd native code */
+  osMessageQDef(queueLedTx, 8, ArmorFrame);
+  queueLedTxHandle = osMessageCreate(osMessageQ(queueLedTx), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -389,7 +368,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-static int g_TotalReceivedSize = 0;
+
 /* USER CODE END 4 */
 
 /* StartDefaultTask function */
@@ -411,12 +390,49 @@ void StartDefaultTask(void const * argument)
 void StartLedTask(void const * argument)
 {
   /* USER CODE BEGIN StartLedTask */
+	// 有効コマンド受信回数
+	static uint32_t cmdRxCount = 0;
+	static uint32_t nextUpdatableTime = 0;
+	
   /* Infinite loop */
   for(;;)
   {
+	ArmorFrame frame;
+	xQueueReceive(queueLedTxHandle, &frame, portMAX_DELAY);
+	
+	switch (frame.type) {
+	case 0:
+		HAL_SPI_Transmit(&hspi2, frame.data, sizeof(frame.data), 0xFFFF);
+		delay_us(150 * 2);
+		
+		// データ送信から更新までは一定時間空ける必要がある
+		nextUpdatableTime = HAL_GetTick() + ARMOR_UPDATE_INTERVAL_MS;
+		
+		cmdRxCount++;
+		break;
+	
+	case 1:
+		if (HAL_GetTick() < nextUpdatableTime) {
+			osDelay(nextUpdatableTime - HAL_GetTick());
+		}
+		HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);
+		delay_us(10);
+		HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
+		
+		// LATCH後の遅延は絶対必要。ただし、最適な時間は要検討。
+		// これがない場合は表示破壊等が多発する。
+		osDelay(2);
+		break;
+		
+	default:
+		break;
+	}
+	
+	// デバッグ用。これを入れると通信速度がかなり下がることに注意。
+	// 参考: 20KB/s->10KB/s
+	//PRINTF("%d\n", cmdRxCount);
+	
 	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-	printf("%d\n", g_TotalReceivedSize);
-	osDelay(3000);
   }
   /* USER CODE END StartLedTask */
 }
@@ -453,7 +469,7 @@ void StartVcpDriverTask(void const * argument)
 		}
 	}
 	
-    osDelay(0);//osDelay(1);
+    osDelay(1);
   }
   /* USER CODE END StartVcpDriverTask */
 }

@@ -5,13 +5,11 @@
 #include "main.h"
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
+#include "user.h"
 
 /************************************************************
  *  define
  ************************************************************/
-// 有効コマンド受信回数
-static uint32_t g_CmdRxCount = 0;
-
 /** コマンド処理関数 */
 typedef void (*cmdFnuc)(const char *s);
 
@@ -99,32 +97,35 @@ void Command_exec(const char *rxCmdBuff)
 
 /************************************************************/
 
+// 例: #001FFFFFFFFFFFFFFFF01FFFFFFFFFFFFFFFF01FFFFFFFFFFFFFFFF01FFFFFFFFFFFFFFFF\n
+// ※"#0"を除いたものが引数sにセットされている
 static void cmdInstruct(const char *s)
 {
-	static uint8_t data_all[36];	// ローカル変数にするとスタックオーバーフロー
 	uint8_t i;
-	
-	// 例: #001FFFFFFFFFFFFFFFF01FFFFFFFFFFFFFFFF01FFFFFFFFFFFFFFFF01FFFFFFFFFFFFFFFF\n
-	// ※"#0"を除いたものが引数sにセットされている
+	ArmorFrame frame;
+	frame.type = 0;
 	for (i = 0; i < 36; i++) {
-		data_all[i] = atoh(s[i*2], s[i*2 + 1]);
+		frame.data[i] = atoh(s[i*2], s[i*2 + 1]);
 	}
 	
-	extern SPI_HandleTypeDef hspi2;
-	HAL_SPI_Transmit(&hspi2, data_all, sizeof(data_all), 0xFFFF);
-	delay_us(150);
-	//osDelay(2);
-	
-	g_CmdRxCount++;
-	PRINTF("%d\n", g_CmdRxCount);
+	portBASE_TYPE xStatus;
+	xStatus = xQueueSend(queueLedTxHandle, (ArmorFrame*)&frame, portMAX_DELAY);
+	if (xStatus != pdPASS) {
+		PRINTF("ERR: queueLedTxHandle is Full!\n");
+	}
 }
 
 static void cmdUpdate(const char *s)
 {
-	osDelay(2);
-	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);
-	delay_us(10);
-	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
+	ArmorFrame frame;
+	frame.type = 1;
+	memset(&frame.data, 0, sizeof(frame.data));
+	
+	portBASE_TYPE xStatus;
+	xStatus = xQueueSend(queueLedTxHandle, (ArmorFrame*)&frame, portMAX_DELAY);
+	if (xStatus != pdPASS) {
+		PRINTF("ERR: queueLedTxHandle is Full!\n");
+	}
 }
 
 static void cmdHelp(const char *s)
