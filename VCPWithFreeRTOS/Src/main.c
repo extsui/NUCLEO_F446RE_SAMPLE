@@ -58,6 +58,8 @@
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 SPI_HandleTypeDef hspi2;
 
 UART_HandleTypeDef huart2;
@@ -78,6 +80,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_ADC1_Init(void);
 void StartDefaultTask(void const * argument);
 void StartLedTask(void const * argument);
 void StartVcpDriverTask(void const * argument);
@@ -144,6 +147,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_SPI2_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -278,6 +282,43 @@ void SystemClock_Config(void)
   HAL_NVIC_SetPriority(SysTick_IRQn, 15, 0);
 }
 
+/* ADC1 init function */
+static void MX_ADC1_Init(void)
+{
+
+  ADC_ChannelConfTypeDef sConfig;
+
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
+    */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 /* SPI2 init function */
 static void MX_SPI2_Init(void)
 {
@@ -379,9 +420,68 @@ void StartDefaultTask(void const * argument)
 
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
+  ADC_ChannelConfTypeDef sConfig;
+  uint32_t analogCh0, analogCh1, analogCh4;
   for(;;)
   {
-    osDelay(1);
+	sConfig.Rank = 1;
+	sConfig.SamplingTime = ADC_SAMPLETIME_56CYCLES;
+
+	sConfig.Channel = ADC_CHANNEL_0;
+	HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 10);
+	analogCh0 = HAL_ADC_GetValue(&hadc1);
+	
+	sConfig.Channel = ADC_CHANNEL_1;
+	HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 10);
+	analogCh1 = HAL_ADC_GetValue(&hadc1);
+	
+	sConfig.Channel = ADC_CHANNEL_4;
+	HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 10);
+	analogCh4 = HAL_ADC_GetValue(&hadc1);
+	
+	PRINTF("%d %d %d\n", analogCh0, analogCh1, analogCh4);
+	
+	uint8_t brightness = (uint8_t)(analogCh1 >> 4);
+	
+	ArmorFrame frame;
+	frame.type = 0;
+	frame.data[9*0] = 0x02;
+	frame.data[9*1] = 0x02;
+	frame.data[9*2] = 0x02;
+	frame.data[9*3] = 0x02;
+	memset(&frame.data[1+9*0], brightness, 8);
+	memset(&frame.data[1+9*1], brightness, 8);
+	memset(&frame.data[1+9*2], brightness, 8);
+	memset(&frame.data[1+9*3], brightness, 8);
+	
+	PRINTF("b=%d\n", brightness);
+	
+	int i;
+	portBASE_TYPE xStatus;
+	
+	// TODO: キューサイズが8なので一気に7個も投入すると危険。
+	// というか、「データフレーム→更新フレーム」の間に別のフレームに割り込まれると
+	// 即座に破綻するので、やはりデータフレーム6個は不可分だと思われる。
+	for (i = 0; i < 6; i++) {
+		xStatus = xQueueSend(queueLedTxHandle, (ArmorFrame*)&frame, portMAX_DELAY);
+		if (xStatus != pdPASS) {
+			PRINTF("ERR: queueLedTxHandle is Full!\n");
+		}
+	}
+	frame.type = 1;
+	memset(&frame.data, 0, sizeof(frame.data));
+	xStatus = xQueueSend(queueLedTxHandle, (ArmorFrame*)&frame, portMAX_DELAY);
+	if (xStatus != pdPASS) {
+		PRINTF("ERR: queueLedTxHandle is Full!\n");
+	}
+	
+    osDelay(100);
   }
   /* USER CODE END 5 */ 
 }
