@@ -189,7 +189,7 @@ int main(void)
 
   /* definition and creation of queueLedTx */
 /* what about the sizeof here??? cd native code */
-  osMessageQDef(queueLedTx, 8, ArmorFrame);
+  osMessageQDef(queueLedTx, 8, ArmorPanelFrame);
   queueLedTxHandle = osMessageCreate(osMessageQ(queueLedTx), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -449,8 +449,7 @@ void StartDefaultTask(void const * argument)
 	
 	uint8_t brightness = (uint8_t)(analogCh1 >> 4);
 	
-	ArmorFrame frame;
-	frame.type = 0;
+	static ArmorPanelFrame frame;
 	frame.data[9*0] = 0x02;
 	frame.data[9*1] = 0x02;
 	frame.data[9*2] = 0x02;
@@ -460,28 +459,23 @@ void StartDefaultTask(void const * argument)
 	memset(&frame.data[1+9*2], brightness, 8);
 	memset(&frame.data[1+9*3], brightness, 8);
 	
-	PRINTF("b=%d\n", brightness);
+	memcpy(&frame.data[36*1], &frame.data[0], 36);
+	memcpy(&frame.data[36*2], &frame.data[0], 36);
+	memcpy(&frame.data[36*3], &frame.data[0], 36);
+	memcpy(&frame.data[36*4], &frame.data[0], 36);
+	memcpy(&frame.data[36*5], &frame.data[0], 36);
 	
-	int i;
-	portBASE_TYPE xStatus;
-	
-	// TODO: キューサイズが8なので一気に7個も投入すると危険。
-	// というか、「データフレーム→更新フレーム」の間に別のフレームに割り込まれると
-	// 即座に破綻するので、やはりデータフレーム6個は不可分だと思われる。
-	for (i = 0; i < 6; i++) {
-		xStatus = xQueueSend(queueLedTxHandle, (ArmorFrame*)&frame, portMAX_DELAY);
-		if (xStatus != pdPASS) {
-			PRINTF("ERR: queueLedTxHandle is Full!\n");
-		}
-	}
-	frame.type = 1;
-	memset(&frame.data, 0, sizeof(frame.data));
-	xStatus = xQueueSend(queueLedTxHandle, (ArmorFrame*)&frame, portMAX_DELAY);
+	// MEMO:
+	// 当初はArmor1コマンド分36バイトを1要素としたキューを考えていたが、
+	// 6要素でArmorPanel1コマンドになるので、間にVCPからのコマンドが
+	// 割り込んでくる場合が普通に有りうる。
+	// つまり、6要素は不可分なので、Armorコマンド6個分の計216バイトを
+	// 1要素とする必要がある。
+	portBASE_TYPE xStatus = xQueueSend(queueLedTxHandle, (ArmorPanelFrame*)&frame, portMAX_DELAY);
 	if (xStatus != pdPASS) {
 		PRINTF("ERR: queueLedTxHandle is Full!\n");
 	}
-	
-    osDelay(100);
+	osDelay(100);
   }
   /* USER CODE END 5 */ 
 }
@@ -497,36 +491,26 @@ void StartLedTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	ArmorFrame frame;
+	static ArmorPanelFrame frame;
 	xQueueReceive(queueLedTxHandle, &frame, portMAX_DELAY);
+	cmdRxCount++;
 	
-	switch (frame.type) {
-	case 0:
-		HAL_SPI_Transmit(&hspi2, frame.data, sizeof(frame.data), 0xFFFF);
+	int i;
+	for (i = 0; i < 6; i++) {
+		HAL_SPI_Transmit(&hspi2, &frame.data[i*(sizeof(frame.data)/6)], sizeof(frame.data)/6, 0xFFFF);
 		delay_us(150 * 2);
-		
-		// データ送信から更新までは一定時間空ける必要がある
-		nextUpdatableTime = HAL_GetTick() + ARMOR_UPDATE_INTERVAL_MS;
-		
-		cmdRxCount++;
-		break;
-	
-	case 1:
-		if (HAL_GetTick() < nextUpdatableTime) {
-			osDelay(nextUpdatableTime - HAL_GetTick());
-		}
-		HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);
-		delay_us(10);
-		HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
-		
-		// LATCH後の遅延は絶対必要。ただし、最適な時間は要検討。
-		// これがない場合は表示破壊等が多発する。
-		osDelay(2);
-		break;
-		
-	default:
-		break;
 	}
+	
+	// データ送信から更新までは一定時間空ける必要がある
+	osDelay(ARMOR_UPDATE_INTERVAL_MS);
+	
+	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_SET);
+	delay_us(10);
+	HAL_GPIO_WritePin(LATCH_GPIO_Port, LATCH_Pin, GPIO_PIN_RESET);
+	
+	// LATCH後の遅延は絶対必要。ただし、最適な時間は要検討。
+	// これがない場合は表示破壊等が多発する。
+	osDelay(2);
 	
 	// デバッグ用。これを入れると通信速度がかなり下がることに注意。
 	// 参考: 20KB/s->10KB/s

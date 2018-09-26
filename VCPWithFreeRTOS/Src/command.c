@@ -21,7 +21,6 @@ typedef struct {
 } Command;
 
 static void cmdInstruct(const char *s);
-static void cmdUpdate(const char *s);
 static void cmdHelp(const char *s);
 static void cmdVersion(const char *s);
 static void cmdSwitch(const char *s);
@@ -32,7 +31,6 @@ static void cmdReboot(const char *s);
 
 static const Command g_CommandTable[] = {
 	{ "#0",		2,	cmdInstruct,"Instruct",					},
-	{ "#1",		2,	cmdUpdate,	"Update",					},
 	{ "-h",		2,	cmdHelp,	"Help",						},
 	{ "-v",		2,	cmdVersion,	"Version",					},
 	{ "sw",		2,	cmdSwitch,	"Get DIP Switch",			},
@@ -101,28 +99,14 @@ void Command_exec(const char *rxCmdBuff)
 // ※"#0"を除いたものが引数sにセットされている
 static void cmdInstruct(const char *s)
 {
+	static ArmorPanelFrame frame;
 	uint8_t i;
-	ArmorFrame frame;
-	frame.type = 0;
-	for (i = 0; i < 36; i++) {
+	for (i = 0; i < sizeof(frame.data); i++) {
 		frame.data[i] = atoh(s[i*2], s[i*2 + 1]);
 	}
 	
 	portBASE_TYPE xStatus;
-	xStatus = xQueueSend(queueLedTxHandle, (ArmorFrame*)&frame, portMAX_DELAY);
-	if (xStatus != pdPASS) {
-		PRINTF("ERR: queueLedTxHandle is Full!\n");
-	}
-}
-
-static void cmdUpdate(const char *s)
-{
-	ArmorFrame frame;
-	frame.type = 1;
-	memset(&frame.data, 0, sizeof(frame.data));
-	
-	portBASE_TYPE xStatus;
-	xStatus = xQueueSend(queueLedTxHandle, (ArmorFrame*)&frame, portMAX_DELAY);
+	xStatus = xQueueSend(queueLedTxHandle, (ArmorPanelFrame*)&frame, portMAX_DELAY);
 	if (xStatus != pdPASS) {
 		PRINTF("ERR: queueLedTxHandle is Full!\n");
 	}

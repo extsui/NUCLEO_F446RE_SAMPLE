@@ -46,12 +46,13 @@ static inline void delay_us(uint32_t usec)
 /************************************************************
  *  システム特化
  ************************************************************/
-#define ARMOR_UPDATE_INTERVAL_MS	(2)	// 最小値は2ms。Fingerの点灯周期が16msなのでそこに合わせるべき?
+#define ARMOR_UPDATE_INTERVAL_MS	(2)		// 最小値は2ms。Fingerの点灯周期が16msなのでそこに合わせるべき?
+
+#define ARMOR_PANEL_FRAME_SIZE		(216)	// [[[Head(1)+Body(8)]*Fingers(4)]*Armors(6)]
 
 typedef struct {
-	uint8_t type;			// 0:通常フレーム / 1:更新フレーム
-	uint8_t data[(1+8)*4];	// Armorに送信するデータ(type=0の時のみ有効)
-} ArmorFrame;
+	uint8_t data[ARMOR_PANEL_FRAME_SIZE];
+} ArmorPanelFrame;
 
 extern osMessageQId queueLedTxHandle;
 
