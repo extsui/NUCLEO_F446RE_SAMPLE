@@ -447,18 +447,23 @@ void StartDefaultTask(void const * argument)
 	
 	PRINTF("%d %d %d\n", analogCh0, analogCh1, analogCh4);
 	
+	static ArmorPanelFrame frame;
+	portBASE_TYPE xStatus;
+	
+	//////////////////////////////////////////////////
+	//  輝度
+	//////////////////////////////////////////////////
+	// 12bitADC(0-4095) --> 8bit
 	uint8_t brightness = (uint8_t)(analogCh1 >> 4);
 	
-	static ArmorPanelFrame frame;
-	frame.data[9*0] = 0x02;
-	frame.data[9*1] = 0x02;
-	frame.data[9*2] = 0x02;
-	frame.data[9*3] = 0x02;
-	memset(&frame.data[1+9*0], brightness, 8);
-	memset(&frame.data[1+9*1], brightness, 8);
-	memset(&frame.data[1+9*2], brightness, 8);
-	memset(&frame.data[1+9*3], brightness, 8);
-	
+	// 1Finger
+	frame.data[0] = 0x02;
+	memset(&frame.data[1], brightness, 8);
+	// 1Armor(Finger*4)
+	memcpy(&frame.data[9*1], &frame.data[0], 9);
+	memcpy(&frame.data[9*2], &frame.data[0], 9);
+	memcpy(&frame.data[9*3], &frame.data[0], 9);
+	// 1ArmorPanel(Armor*6)
 	memcpy(&frame.data[36*1], &frame.data[0], 36);
 	memcpy(&frame.data[36*2], &frame.data[0], 36);
 	memcpy(&frame.data[36*3], &frame.data[0], 36);
@@ -471,10 +476,39 @@ void StartDefaultTask(void const * argument)
 	// 割り込んでくる場合が普通に有りうる。
 	// つまり、6要素は不可分なので、Armorコマンド6個分の計216バイトを
 	// 1要素とする必要がある。
-	portBASE_TYPE xStatus = xQueueSend(queueLedTxHandle, (ArmorPanelFrame*)&frame, portMAX_DELAY);
+	xStatus = xQueueSend(queueLedTxHandle, (ArmorPanelFrame*)&frame, portMAX_DELAY);
 	if (xStatus != pdPASS) {
 		PRINTF("ERR: queueLedTxHandle is Full!\n");
 	}
+	
+	//////////////////////////////////////////////////
+	//  周期
+	//////////////////////////////////////////////////
+	// 12bitADC(0-4095) --> 500-5000
+	//   base=500, range=4500
+	uint16_t light_cycle = (uint16_t)((((analogCh4 * 1.0) / 4096) * 4500) + 500);
+	
+	// 1Finger
+	frame.data[0] = 0x04;
+	frame.data[1] = (uint8_t)((light_cycle & 0xFF00) >> 8);
+	frame.data[2] = (uint8_t)((light_cycle & 0x00FF));
+	memset(&frame.data[3], 0xFF, 5);
+	// 1Armor(Finger*4)
+	memcpy(&frame.data[9*1], &frame.data[0], 9);
+	memcpy(&frame.data[9*2], &frame.data[0], 9);
+	memcpy(&frame.data[9*3], &frame.data[0], 9);
+	// 1ArmorPanel(Armor*6)
+	memcpy(&frame.data[36*1], &frame.data[0], 36);
+	memcpy(&frame.data[36*2], &frame.data[0], 36);
+	memcpy(&frame.data[36*3], &frame.data[0], 36);
+	memcpy(&frame.data[36*4], &frame.data[0], 36);
+	memcpy(&frame.data[36*5], &frame.data[0], 36);
+	
+	xStatus = xQueueSend(queueLedTxHandle, (ArmorPanelFrame*)&frame, portMAX_DELAY);
+	if (xStatus != pdPASS) {
+		PRINTF("ERR: queueLedTxHandle is Full!\n");
+	}
+	
 	osDelay(100);
   }
   /* USER CODE END 5 */ 
