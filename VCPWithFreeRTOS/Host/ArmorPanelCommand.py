@@ -82,8 +82,6 @@ def panel_to_command(panel, finger_cmd):
 import time
 import serial
 
-start_time = time.time()
-
 # 仮想COMポートなのでボーレートは無意味
 ser = serial.Serial('COM58', 1000000)
 
@@ -119,6 +117,8 @@ print('CSV: [OK]')
 count = 0
 
 gain = 1.00
+fps = 60.0
+start_time = time.time()
 
 for row in reader:
     
@@ -427,10 +427,11 @@ for row in reader:
     #print(str)
     ser.write(str.encode())
 
-    time.sleep(0.015)   # 50fps(実測)
-    #time.sleep(0.005)  # for 60fps
-    #time.sleep(0.025)  # for 30fps
-    #time.sleep(0.040)  # for 20fps
+    # fpsの値に合わせて規定時間になるまで待つ
+    expected_time = start_time + (((1000.0 / fps) * count) / 1000)
+    while (time.time() < expected_time):
+        time.sleep(0.001)
+        print('_', end='')
     
     
 elapsed_time = time.time() - start_time
