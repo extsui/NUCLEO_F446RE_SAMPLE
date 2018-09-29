@@ -85,7 +85,7 @@ import serial
 start_time = time.time()
 
 # 仮想COMポートなのでボーレートは無意味
-ser = serial.Serial('COM52', 1000000)
+ser = serial.Serial('COM58', 1000000)
 
 num_to_pattern = [
     0xfc, # 0
@@ -118,9 +118,29 @@ print('CSV: [OK]')
 
 count = 0
 
+gain = 1.00
+
 for row in reader:
     
     count += 1
+
+    # ゲイン調整
+    if ((count % 10) == 0):
+        import json
+        ser.write('#1\n'.encode())
+        line = ser.readline()
+        input_panel = json.loads(line)
+        raw_gain = input_panel['gain']
+        gain = (raw_gain * 2 / 4096.0)
+        # -----+-------
+        # 入力 | ゲイン
+        # -----+-------
+        # 0    | 0.00
+        # 2048 | 1.00
+        # 4095 | 2.00
+        # -----+-------
+        print('gain=%.2f' % gain)
+        
     
     # そのまま出す場合
     #spec = map(lambda x: int(x), row)
@@ -129,8 +149,12 @@ for row in reader:
     #spec = map(lambda x: (int)((int(x) + 1) * 1.6), row)
     #spec = map(lambda x: (int)((int(x) + 1) * 2.2), row)
     #spec = map(lambda x: (int)((int(x) * 1.0 / 3.5)), row)
+    #spec = list(map(lambda x: (int)((int(x) * 1.0 / 1.5)), row))
+
+    # ゲイン適用
+    spec = list(map(lambda x: (int)((int(x) * gain * 1.0 / 1.5)), row))
+
     
-    spec = list(map(lambda x: (int)((int(x) * 1.0 / 1.5)), row))
     #print(spec)
     #continue
     
