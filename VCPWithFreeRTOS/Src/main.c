@@ -410,6 +410,52 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+static uint16_t getAnalogValue(uint8_t ch)
+{
+	ADC_ChannelConfTypeDef sConfig;
+	uint32_t analogCh0, analogCh1, analogCh4;
+	
+	sConfig.Rank = 1;
+	sConfig.SamplingTime = ADC_SAMPLETIME_56CYCLES;
+	
+	if (ch == 0) {
+		sConfig.Channel = ADC_CHANNEL_0;
+		HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+		HAL_ADC_Start(&hadc1);
+		HAL_ADC_PollForConversion(&hadc1, 10);
+		analogCh0 = HAL_ADC_GetValue(&hadc1);
+		return analogCh0;
+		
+	} else if (ch == 1) {
+		sConfig.Channel = ADC_CHANNEL_1;
+		HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+		HAL_ADC_Start(&hadc1);
+		HAL_ADC_PollForConversion(&hadc1, 10);
+		analogCh1 = HAL_ADC_GetValue(&hadc1);
+		return analogCh1;
+		
+	} else if (ch == 4) {
+		sConfig.Channel = ADC_CHANNEL_4;
+		HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+		HAL_ADC_Start(&hadc1);
+		HAL_ADC_PollForConversion(&hadc1, 10);
+		analogCh4 = HAL_ADC_GetValue(&hadc1);
+		return analogCh4;
+		
+	} else {
+		return 0xFFFF;
+	}
+}
+
+void getInputPanel(InputPanel *panel)
+{
+	// TODO: 同期なので時間がかかることに注意。
+	// 最終的にはDMA転送にしてフィルタ付きにするべき。
+	panel->brightness = getAnalogValue(1);
+	panel->cycle = getAnalogValue(4);
+	panel->gain = getAnalogValue(0);
+}
+
 /* USER CODE END 4 */
 
 /* StartDefaultTask function */
@@ -420,31 +466,13 @@ void StartDefaultTask(void const * argument)
 
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
-  ADC_ChannelConfTypeDef sConfig;
-  uint32_t analogCh0, analogCh1, analogCh4;
-  for(;;)
+  for (;;)
   {
-	sConfig.Rank = 1;
-	sConfig.SamplingTime = ADC_SAMPLETIME_56CYCLES;
-
-	sConfig.Channel = ADC_CHANNEL_0;
-	HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 10);
-	analogCh0 = HAL_ADC_GetValue(&hadc1);
-	
-	sConfig.Channel = ADC_CHANNEL_1;
-	HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 10);
-	analogCh1 = HAL_ADC_GetValue(&hadc1);
-	
-	sConfig.Channel = ADC_CHANNEL_4;
-	HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 10);
-	analogCh4 = HAL_ADC_GetValue(&hadc1);
-	
+	uint32_t analogCh0, analogCh1, analogCh4;
+	analogCh0 = getAnalogValue(0);
+	analogCh1 = getAnalogValue(1);
+	analogCh4 = getAnalogValue(4);
+  
 	PRINTF("%d %d %d\n", analogCh0, analogCh1, analogCh4);
 	
 	static ArmorPanelFrame frame;
@@ -520,7 +548,6 @@ void StartLedTask(void const * argument)
   /* USER CODE BEGIN StartLedTask */
 	// 有効コマンド受信回数
 	static uint32_t cmdRxCount = 0;
-	static uint32_t nextUpdatableTime = 0;
 	
   /* Infinite loop */
   for(;;)

@@ -56,4 +56,14 @@ typedef struct {
 
 extern osMessageQId queueLedTxHandle;
 
+// 入力パネル
+typedef struct {
+	uint16_t brightness;
+	uint16_t cycle;
+	uint16_t gain;
+} InputPanel;
+
+// 入力パネル値取得
+void getInputPanel(InputPanel *panel);
+
 #endif /* USER_H */

@@ -6,6 +6,7 @@
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
 #include "user.h"
+#include "usbd_cdc_if.h"
 
 /************************************************************
  *  define
@@ -21,6 +22,7 @@ typedef struct {
 } Command;
 
 static void cmdInstruct(const char *s);
+static void cmdPanel(const char *s);
 static void cmdHelp(const char *s);
 static void cmdVersion(const char *s);
 static void cmdSwitch(const char *s);
@@ -31,6 +33,7 @@ static void cmdReboot(const char *s);
 
 static const Command g_CommandTable[] = {
 	{ "#0",		2,	cmdInstruct,"Instruct",					},
+	{ "#1",		2,	cmdPanel,	"Get Panel Info",			},
 	{ "-h",		2,	cmdHelp,	"Help",						},
 	{ "-v",		2,	cmdVersion,	"Version",					},
 	{ "sw",		2,	cmdSwitch,	"Get DIP Switch",			},
@@ -110,6 +113,18 @@ static void cmdInstruct(const char *s)
 	if (xStatus != pdPASS) {
 		PRINTF("ERR: queueLedTxHandle is Full!\n");
 	}
+}
+
+static void cmdPanel(const char *s)
+{
+	InputPanel panel;
+	getInputPanel(&panel);
+	
+	static char line[64];
+	int len;
+	len = sprintf(line, "{\"brightness\":%d,\"cycle\":%d,\"gain\":%d}\n",
+		panel.brightness, panel.cycle, panel.gain);
+	CDC_Transmit_FS((uint8_t*)line, len);
 }
 
 static void cmdHelp(const char *s)
