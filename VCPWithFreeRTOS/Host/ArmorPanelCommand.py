@@ -48,6 +48,19 @@ def panel_to_command(panel, finger_cmd):
 
 ######################################################################
 
+num_to_pattern = [
+    0xfc, # 0
+    0x60, # 1
+    0xda, # 2
+    0xf2, # 3
+    0x66, # 4
+    0xb6, # 5
+    0xbe, # 6
+    0xe4, # 7
+    0xfe, # 8
+    0xf6, # 9
+]
+
 def spec_to_panel(spec):
     """スペックからパネルに変換
 
@@ -94,19 +107,6 @@ def spec_to_panel(spec):
         [ LV2, LV4, LV4, LV4, LV4, LV4, LV4, LV4 ], # 23
         [ LV3, LV4, LV4, LV4, LV4, LV4, LV4, LV4 ], # 24～
     ]
-    
-    num_to_pattern = [
-        0xfc, # 0
-        0x60, # 1
-        0xda, # 2
-        0xf2, # 3
-        0x66, # 4
-        0xb6, # 5
-        0xbe, # 6
-        0xe4, # 7
-        0xfe, # 8
-        0xf6, # 9
-    ]
 
     for x in range(24):
         if (spec[x] > 24):
@@ -122,13 +122,7 @@ def spec_to_panel(spec):
         
         # 最下段はスペックの数値表示
         panel[7][x] = num_to_pattern[bottom_num]
-    
-    # 更新回数表示
-    panel[0][23] = num_to_pattern[count // 1 % 10]
-    panel[0][22] = num_to_pattern[count // 10 % 10]
-    panel[0][21] = num_to_pattern[count // 100 % 10]
-    panel[0][20] = num_to_pattern[count // 1000 % 10]
-    
+        
     # 最下段は全部点灯した方が奇麗なのでは?
     for x in range(24):
         panel[6][x] |= 0x11
@@ -161,11 +155,9 @@ def read_gain(ser):
 def write_display(ser, xfer_data):
     ser.write(xfer_data.encode())
 
-
-if __name__ == '__main__':
-
+def exec_csv_spectrum():
     # 仮想COMポートなのでボーレートは無意味
-    ser = serial.Serial('COM58', 1000000)
+    ser = serial.Serial('COM52', 1000000)
     
     f = open('mtank_16384pt_60fps.csv', 'r')
     reader = csv.reader(f)
@@ -187,6 +179,13 @@ if __name__ == '__main__':
         spec = list(map(lambda x: (int)((int(x) * gain * 1.0 / 1.5)), row))
         
         panel = spec_to_panel(spec)
+
+        # 更新回数表示
+        panel[0][23] = num_to_pattern[count // 1 % 10]
+        panel[0][22] = num_to_pattern[count // 10 % 10]
+        panel[0][21] = num_to_pattern[count // 100 % 10]
+        panel[0][20] = num_to_pattern[count // 1000 % 10]
+  
         xfer_data = panel_to_command(panel, 0x01)
         write_display(ser, xfer_data)
         
@@ -204,3 +203,6 @@ if __name__ == '__main__':
     print('%f [s]' % elapsed_time)
     print('fps = %f' % (count / elapsed_time))
     print('Done.')
+
+if __name__ == '__main__':
+    exec_csv_spectrum()
