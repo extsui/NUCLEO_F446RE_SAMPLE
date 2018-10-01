@@ -204,5 +204,166 @@ def exec_csv_spectrum():
     print('fps = %f' % (count / elapsed_time))
     print('Done.')
 
+######################################################################
+
+import wave
+import pyaudio
+import scipy as sp
+import numpy as np
+import math
+
+# fftpt=1024 -> 511点を24点にどう集約するか．
+# ※1点毎の分解能は約43Hz(=44100Hz/1024pt)
+""" 単純置換型
+2,  2,  2,  2,
+2,  2,  2,  2,
+4,  4,  4,  4,
+8,  8,  32, 32,
+10, 16, 24, 32,
+48, 50, 76, 92,
+"""
+bandHz = [
+     1, 1, 1, 1,
+     2, 2, 2, 2,
+     2, 2, 4, 4,
+     4, 4, 8, 8, 
+     16,16,32,32,
+     64,64,96,128,
+]
+
+FFT_SIZE = 1024
+
+def exec_wav_spectrum():
+    # 仮想COMポートなのでボーレートは無意味
+    ser = serial.Serial('COM52', 1000000)
+
+    hamming_win = sp.hamming(FFT_SIZE)
+
+    wavefile = wave.open('mtank.wav', 'rb')
+    frames = wavefile.readframes(wavefile.getnframes())
+    # ±1の範囲に正規化
+    wavedata = sp.fromstring(frames, dtype='int16') / 32768.0
+    wavefile.rewind()
+    
+    pa = pyaudio.PyAudio()
+    print('WAV: [OK]')
+
+    count = 0
+    gain = 1.00
+    fps = 60.0
+    
+    def callback(in_data, frame_count, time_info, status):
+        frames = wavefile.readframes(frame_count)
+        wave = sp.fromstring(frames, dtype='int16')
+        
+        # 再生音量にもゲイン適用
+        gained_wave = wave * gain
+        gained_wave = np.clip(gained_wave, -32768, +32767)
+        data = bytes(gained_wave.astype(np.int16))
+
+        return (data, pyaudio.paContinue)
+
+    stream = pa.open(format = pa.get_format_from_width(wavefile.getsampwidth()),
+                     channels = wavefile.getnchannels(),
+                     rate = wavefile.getframerate(),
+                     output = True,
+                     stream_callback = callback)
+    stream.start_stream()
+
+    start_time = time.time()
+
+    while (stream.is_active()):
+        # ゲイン調整
+        if ((count % 10) == 0):
+            gain = read_gain(ser)
+            print('gain=%.2f' % gain)
+
+        # 経過時間からフレーム箇所を特定してそこをFFTする
+        # data[1024](要正規化) --> spec[24]
+        frame_time = time.time() - start_time
+        frame_pos = int(frame_time * wavefile.getframerate())
+
+        fft_input = wavedata[frame_pos : frame_pos + FFT_SIZE]
+
+        # ゲイン適用
+        fft_input = fft_input * gain
+        
+        if (len(fft_input) < FFT_SIZE):
+            fft_input = np.zeros(FFT_SIZE)
+        fft_output = sp.fft(fft_input * hamming_win)
+        
+        ########################################
+        y = []
+        
+        toStep = 0
+        fromStep = 0
+        specSize = 513
+
+        for i in range(len(bandHz)):
+            bandStep = bandHz[i]
+            
+            toStep += bandStep
+            if (toStep > specSize):
+                toStep = specSize
+
+            bandAve = 0.0
+            j = fromStep
+            while (j < toStep):
+                bandDB = 0.0
+                if (abs(fft_output[j]) >= 0.001):
+                    bandDB = 2 * (20 * ((math.log10(abs(fft_output[j])))))
+                    bandDB = (20 * ((math.log10(abs(fft_output[j])))))
+                    
+                    if (bandDB < 0):
+                        bandDB = 0
+                bandAve += bandDB
+                j += 1
+            # 平均値
+            bandAve /= bandStep
+            fromStep = toStep
+            
+            # 最終加工
+            bandAve /= 1.5
+
+            y.append(int(bandAve))
+        ########################################
+
+        spec = y
+
+        panel = spec_to_panel(spec)
+
+        # 更新回数表示
+        panel[0][23] = num_to_pattern[count // 1 % 10]
+        panel[0][22] = num_to_pattern[count // 10 % 10]
+        panel[0][21] = num_to_pattern[count // 100 % 10]
+        panel[0][20] = num_to_pattern[count // 1000 % 10]
+  
+        xfer_data = panel_to_command(panel, 0x01)
+        write_display(ser, xfer_data)
+        
+        # fpsの値に合わせて規定時間になるまで待つ
+        expected_time = start_time + (((1000.0 / fps) * count) / 1000)
+        while (time.time() < expected_time):
+            time.sleep(0.001)
+            print('_', end='')
+        
+        count += 1
+    
+    elapsed_time = time.time() - start_time
+    ser.close()
+
+    stream.stop_stream()
+    stream.close()
+    wavefile.close()
+    pa.terminate()
+    
+    print('%f [s]' % elapsed_time)
+    print('fps = %f' % (count / elapsed_time))
+    print('Done.')
+    
+
 if __name__ == '__main__':
-    exec_csv_spectrum()
+    #exec_csv_spectrum()
+    exec_wav_spectrum()
+    # TODO:
+    # exec_mic_spectrum()
