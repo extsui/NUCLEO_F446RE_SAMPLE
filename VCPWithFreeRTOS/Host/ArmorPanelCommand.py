@@ -73,12 +73,51 @@ def spec_to_panel(spec):
     """
     # 2次元配列[8][24]
     panel = [ [ 0 for x in range(24) ] for y in range(8) ]
+
     
+    # <長方形版>
     LV0 = 0x00
     LV1 = 0x10
     LV2 = 0x2A
     LV3 = 0xEC
     LV4 = 0x6C
+    
+
+    """
+    # <天井のみ版>
+    LV0 = 0x00
+    LV1 = 0x10
+    LV2 = 0x02 #0x2A
+    LV3 = 0x10 #0xEC
+    LV4 = 0x00 #0x6C
+    """
+
+    """
+    # <影版>→没。歯抜け見たいでカッコ悪い。
+    LV0 = 0x00
+    LV1 = 0x10
+    LV2 = 0b22
+    LV3 = 0bE0
+    LV4 = 0b60
+    """
+    
+    """
+    # <一直線版> ドットを削ると控え目になる。
+    LV0 = 0x00
+    LV1 = 0x01 & 0xFE
+    LV2 = 0x21 & 0xFE
+    LV3 = 0x61 & 0xFE
+    LV4 = 0x61 & 0xFE
+    """
+    
+    """
+    # <二直線版>→没。長方形版の下位互換。
+    LV0 = 0x00
+    LV1 = 0x00
+    LV2 = 0x28
+    LV3 = 0x6C
+    LV4 = 0x6C
+    """
     
     bar_table = [
         [ LV0, LV0, LV0, LV0, LV0, LV0, LV0, LV0 ], # 0
@@ -363,7 +402,7 @@ def exec_wav_spectrum():
     
 
 if __name__ == '__main__':
-    #exec_csv_spectrum()
-    exec_wav_spectrum()
+    exec_csv_spectrum()
+    #exec_wav_spectrum()
     # TODO:
     # exec_mic_spectrum()
