@@ -399,10 +399,71 @@ def exec_wav_spectrum():
     print('%f [s]' % elapsed_time)
     print('fps = %f' % (count / elapsed_time))
     print('Done.')
+
+######################################################################
+
+import numpy as np
+
+def exec_badapple():
+    # 仮想COMポートなのでボーレートは無意味
+    ser = serial.Serial('COM52', 1000000)
+
+    bindata = np.fromfile('BADAPPLE.7SM', np.uint8)
+    print('BadApple: [OK]')
     
+    count = 0
+    frames = len(bindata) / 128
+    
+    fps = 10
+    start_time = time.time()
+
+    while (count < frames):
+
+        panel = [ [ 0 for x in range(24) ] for y in range(8) ]
+
+        frame_data = bindata[count*128 : (count+1)*128]
+
+        panel[0][0:16] = frame_data[16*0:16*1]
+        panel[1][0:16] = frame_data[16*1:16*2]
+        panel[2][0:16] = frame_data[16*2:16*3]
+        panel[3][0:16] = frame_data[16*3:16*4]
+        panel[4][0:16] = frame_data[16*4:16*5]
+        panel[5][0:16] = frame_data[16*5:16*6]
+        panel[6][0:16] = frame_data[16*6:16*7]
+        panel[7][0:16] = frame_data[16*7:16*8]
+        
+        # 更新回数表示
+        panel[0][23] = num_to_pattern[count // 1 % 10]
+        panel[0][22] = num_to_pattern[count // 10 % 10]
+        panel[0][21] = num_to_pattern[count // 100 % 10]
+        panel[0][20] = num_to_pattern[count // 1000 % 10]
+  
+        xfer_data = panel_to_command(panel, 0x01)
+        write_display(ser, xfer_data)
+
+        # 見やすさ用
+        print('')
+        
+        # fpsの値に合わせて規定時間になるまで待つ
+        expected_time = start_time + (((1000.0 / fps) * count) / 1000)
+        while (time.time() < expected_time):
+            time.sleep(0.001)
+            print('_', end='')
+        
+        count += 1
+    
+    elapsed_time = time.time() - start_time
+    ser.close()
+    
+    print('%f [s]' % elapsed_time)
+    print('fps = %f' % (count / elapsed_time))
+    print('Done.')
+    
+######################################################################
 
 if __name__ == '__main__':
-    exec_csv_spectrum()
+    #exec_csv_spectrum()
     #exec_wav_spectrum()
+    exec_badapple()
     # TODO:
     # exec_mic_spectrum()
