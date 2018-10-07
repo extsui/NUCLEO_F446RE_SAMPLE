@@ -404,20 +404,63 @@ def exec_wav_spectrum():
 
 import numpy as np
 
+def read_input_panel(ser):
+    """入力パネルから各種情報読出し"""
+    ser.write('#1\n'.encode())
+    line = ser.readline()
+    return json.loads(line)
+
 def exec_badapple():
     # 仮想COMポートなのでボーレートは無意味
     ser = serial.Serial('COM52', 1000000)
 
-    bindata = np.fromfile('BADAPPLE.7SM', np.uint8)
+    fps = 29.97
+    gain = 1.00
+
+    """ 表示 """
+    bindata = np.fromfile('BADAPPLE_30FPS.7SM', np.uint8)
     print('BadApple: [OK]')
+    frame_num = len(bindata) / 128
     
+    """ 音声 """
+    wavefile = wave.open('badapple.wav', 'rb')
+    frames = wavefile.readframes(wavefile.getnframes())
+    wavefile.rewind()
+    pa = pyaudio.PyAudio()
+    print('WAV: [OK]')
+
+    def callback(in_data, frame_count, time_info, status):
+        frames = wavefile.readframes(frame_count)
+        wave = sp.fromstring(frames, dtype='int16')
+        
+        # 再生音量にもゲイン適用
+        gained_wave = wave * gain
+        gained_wave = np.clip(gained_wave, -32768, +32767)
+        data = bytes(gained_wave.astype(np.int16))
+
+        return (data, pyaudio.paContinue)
+
+    stream = pa.open(format = pa.get_format_from_width(wavefile.getsampwidth()),
+                     channels = wavefile.getnchannels(),
+                     rate = wavefile.getframerate(),
+                     output = True,
+                     stream_callback = callback)
+    stream.start_stream()
+
+    """ 再生 """
     count = 0
-    frames = len(bindata) / 128
-    
-    fps = 10
     start_time = time.time()
 
-    while (count < frames):
+    while (count < frame_num):
+
+        """
+        # ゲイン調整
+        if ((count % 10) == 0):
+            gain = read_gain(ser)
+            print('gain=%.2f' % gain)
+        """
+        # 1フレーム毎に読み込んでも特に遅延無し
+        gain = read_gain(ser)
 
         panel = [ [ 0 for x in range(24) ] for y in range(8) ]
 
@@ -431,19 +474,34 @@ def exec_badapple():
         panel[5][0:16] = frame_data[16*5:16*6]
         panel[6][0:16] = frame_data[16*6:16*7]
         panel[7][0:16] = frame_data[16*7:16*8]
-        
+
         # 更新回数表示
         panel[0][23] = num_to_pattern[count // 1 % 10]
         panel[0][22] = num_to_pattern[count // 10 % 10]
         panel[0][21] = num_to_pattern[count // 100 % 10]
         panel[0][20] = num_to_pattern[count // 1000 % 10]
   
+        # 各種パラメータ表示
+        input_panel = read_input_panel(ser)
+
+        panel[2][23] = num_to_pattern[input_panel['gain'] // 1 % 10]
+        panel[2][22] = num_to_pattern[input_panel['gain'] // 10 % 10]
+        panel[2][21] = num_to_pattern[input_panel['gain'] // 100 % 10]
+        panel[2][20] = num_to_pattern[input_panel['gain'] // 1000 % 10]
+
+        panel[4][23] = num_to_pattern[input_panel['brightness'] // 1 % 10]
+        panel[4][22] = num_to_pattern[input_panel['brightness'] // 10 % 10]
+        panel[4][21] = num_to_pattern[input_panel['brightness'] // 100 % 10]
+        panel[4][20] = num_to_pattern[input_panel['brightness'] // 1000 % 10]
+
+        panel[6][23] = num_to_pattern[input_panel['cycle'] // 1 % 10]
+        panel[6][22] = num_to_pattern[input_panel['cycle'] // 10 % 10]
+        panel[6][21] = num_to_pattern[input_panel['cycle'] // 100 % 10]
+        panel[6][20] = num_to_pattern[input_panel['cycle'] // 1000 % 10]
+
         xfer_data = panel_to_command(panel, 0x01)
         write_display(ser, xfer_data)
 
-        # 見やすさ用
-        print('')
-        
         # fpsの値に合わせて規定時間になるまで待つ
         expected_time = start_time + (((1000.0 / fps) * count) / 1000)
         while (time.time() < expected_time):
@@ -454,6 +512,11 @@ def exec_badapple():
     
     elapsed_time = time.time() - start_time
     ser.close()
+
+    stream.stop_stream()
+    stream.close()
+    wavefile.close()
+    pa.terminate()
     
     print('%f [s]' % elapsed_time)
     print('fps = %f' % (count / elapsed_time))
