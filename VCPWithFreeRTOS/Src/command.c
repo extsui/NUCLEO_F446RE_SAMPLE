@@ -23,6 +23,7 @@ typedef struct {
 
 static void cmdInstruct(const char *s);
 static void cmdPanel(const char *s);
+static void cmdMode(const char *s);
 static void cmdHelp(const char *s);
 static void cmdVersion(const char *s);
 static void cmdSwitch(const char *s);
@@ -34,6 +35,7 @@ static void cmdReboot(const char *s);
 static const Command g_CommandTable[] = {
 	{ "#0",		2,	cmdInstruct,"Instruct",					},
 	{ "#1",		2,	cmdPanel,	"Get Panel Info",			},
+	{ "md",		2,	cmdMode,	"Get Mode Switch",			},
 	{ "-h",		2,	cmdHelp,	"Help",						},
 	{ "-v",		2,	cmdVersion,	"Version",					},
 	{ "sw",		2,	cmdSwitch,	"Get DIP Switch",			},
@@ -42,6 +44,9 @@ static const Command g_CommandTable[] = {
 	{ "dbg",	3,	cmdDebug,	"Debug : dbg <p1> <p2>",	},
 	{ "reb",	3,	cmdReboot,	"Reboot"					},
 };
+
+// TODO: 外部変数注意
+boolean_t g_ModeEvent = FALSE;
 
 /************************************************************
  *  prototype
@@ -125,6 +130,16 @@ static void cmdPanel(const char *s)
 	len = sprintf(line, "{\"brightness\":%d,\"cycle\":%d,\"gain\":%d}\n",
 		panel.brightness, panel.cycle, panel.gain);
 	CDC_Transmit_FS((uint8_t*)line, len);
+}
+
+static void cmdMode(const char *s)
+{
+	if (g_ModeEvent == TRUE) {
+		g_ModeEvent = FALSE;
+		CDC_Transmit_FS((uint8_t*)"1\n", 2);
+	} else {
+		CDC_Transmit_FS((uint8_t*)"0\n", 2);
+	}
 }
 
 static void cmdHelp(const char *s)

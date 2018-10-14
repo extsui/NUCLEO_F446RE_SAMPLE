@@ -66,4 +66,7 @@ typedef struct {
 // 入力パネル値取得
 void getInputPanel(InputPanel *panel);
 
+// モード切り替えイベント
+extern boolean_t g_ModeEvent;
+
 #endif /* USER_H */

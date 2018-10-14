@@ -649,7 +649,7 @@ void switchPollCallback(void const * argument)
 	
 	// 押下(RESET)->リリース(SET)で確定
 	if ((pinPrevState == GPIO_PIN_RESET) && (pin == GPIO_PIN_SET)) {
-		PRINTF("PRESS\n");
+		g_ModeEvent = TRUE;
 	}
 	pinPrevState = pin;
 	
