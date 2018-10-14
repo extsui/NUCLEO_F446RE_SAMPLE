@@ -69,6 +69,8 @@
 #define USART_RX_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
+#define AUTO_ADJ_Pin GPIO_PIN_9
+#define AUTO_ADJ_GPIO_Port GPIOA
 #define MODE_Pin GPIO_PIN_10
 #define MODE_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13

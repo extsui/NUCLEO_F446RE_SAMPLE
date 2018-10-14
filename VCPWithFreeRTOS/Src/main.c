@@ -419,11 +419,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : MODE_Pin */
-  GPIO_InitStruct.Pin = MODE_Pin;
+  /*Configure GPIO pins : AUTO_ADJ_Pin MODE_Pin */
+  GPIO_InitStruct.Pin = AUTO_ADJ_Pin|MODE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(MODE_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
@@ -496,6 +496,12 @@ void StartDefaultTask(void const * argument)
 	
 	static ArmorPanelFrame frame;
 	portBASE_TYPE xStatus;
+	
+	// 自動調整モードONの場合のみ輝度/周期コマンドを送信する
+	if (HAL_GPIO_ReadPin(AUTO_ADJ_GPIO_Port, AUTO_ADJ_Pin) == GPIO_PIN_RESET) {
+		osDelay(100);
+		continue;
+	}
 	
 	//////////////////////////////////////////////////
 	//  輝度
@@ -575,6 +581,9 @@ void StartLedTask(void const * argument)
 	xQueueReceive(queueLedTxHandle, &frame, portMAX_DELAY);
 	cmdRxCount++;
 	
+	// コマンド送信中のみLEDを点灯させる
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+	
 	int i;
 	for (i = 0; i < 6; i++) {
 		HAL_SPI_Transmit(&hspi2, &frame.data[i*(sizeof(frame.data)/6)], sizeof(frame.data)/6, 0xFFFF);
@@ -596,7 +605,7 @@ void StartLedTask(void const * argument)
 	// 参考: 20KB/s->10KB/s
 	//PRINTF("%d\n", cmdRxCount);
 	
-	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
   }
   /* USER CODE END StartLedTask */
 }
