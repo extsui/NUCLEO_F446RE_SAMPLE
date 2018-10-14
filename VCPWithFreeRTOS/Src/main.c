@@ -69,6 +69,7 @@ osThreadId ledTaskHandle;
 osThreadId vcpDriverTaskHandle;
 osMessageQId queueVcpRxHandle;
 osMessageQId queueLedTxHandle;
+osTimerId switchPollTimerHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -84,6 +85,7 @@ static void MX_ADC1_Init(void);
 void StartDefaultTask(void const * argument);
 void StartLedTask(void const * argument);
 void StartVcpDriverTask(void const * argument);
+void switchPollCallback(void const * argument);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -113,6 +115,11 @@ void VCP_ReceivedCallback(uint8_t *buf, uint16_t len)
 		xQueueSendFromISR(queueVcpRxHandle, (uint8_t*)&buf[i], &xHigherPriorityTaskWoken);
 	}
 	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
+
+void vApplicationIdleHook(void)
+{
+	// TODO:
 }
 /* USER CODE END 0 */
 
@@ -160,8 +167,14 @@ int main(void)
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
+  /* Create the timer(s) */
+  /* definition and creation of switchPollTimer */
+  osTimerDef(switchPollTimer, switchPollCallback);
+  switchPollTimerHandle = osTimerCreate(osTimer(switchPollTimer), osTimerPeriodic, NULL);
+
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
+  osTimerStart(switchPollTimerHandle, 10);
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the thread(s) */
@@ -406,6 +419,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : MODE_Pin */
+  GPIO_InitStruct.Pin = MODE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(MODE_GPIO_Port, &GPIO_InitStruct);
+
 }
 
 /* USER CODE BEGIN 4 */
@@ -617,6 +636,24 @@ void StartVcpDriverTask(void const * argument)
     osDelay(1);
   }
   /* USER CODE END StartVcpDriverTask */
+}
+
+/* switchPollCallback function */
+void switchPollCallback(void const * argument)
+{
+  /* USER CODE BEGIN switchPollCallback */
+ 	static GPIO_PinState pinPrevState = GPIO_PIN_SET;
+	GPIO_PinState pin;
+	
+	pin = HAL_GPIO_ReadPin(MODE_GPIO_Port, MODE_Pin);
+	
+	// 押下(RESET)->リリース(SET)で確定
+	if ((pinPrevState == GPIO_PIN_RESET) && (pin == GPIO_PIN_SET)) {
+		PRINTF("PRESS\n");
+	}
+	pinPrevState = pin;
+	
+  /* USER CODE END switchPollCallback */
 }
 
 /**
