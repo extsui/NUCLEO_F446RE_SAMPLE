@@ -49,7 +49,7 @@ def get_points_of_circle(center, radius):
 
     return pixels
 
-def create_seg_points():
+def get_seg_points():
     return [
         get_points_of_polygon(POINT_SEG_A),
         get_points_of_polygon(POINT_SEG_B),
@@ -60,6 +60,29 @@ def create_seg_points():
         get_points_of_polygon(POINT_SEG_G),
         get_points_of_circle(POINT_SEG_DOT_CENTER, POINT_SEG_DOT_RADIUS),
     ]
+
+def is_seg_light(img, seg_pts):
+    """入力画像imgに対してseg_ptsで指定した座標群が半分以上白ならTrueを返す"""
+    and_count = 0
+    for [y, x] in seg_pts:
+        if (img[y, x] == 255):
+            and_count += 1
+    if (and_count >= len(seg_pts)):
+        return True
+    else:
+        return False
+
+def get_seg_light_pattern(img, seg_pts, base):
+    """aaa"""
+    # TODO: baseを足す
+    ptn = 0x00
+    for i in range(8):
+        if (is_seg_light(img_test, seg_pts[i])):
+            bit = 1
+        else:
+            bit = 0
+        ptn |= (bit << (7 - i))
+    return ptn
 
 def draw_7seg():
     """7セグ描画"""
@@ -84,26 +107,18 @@ cv2.putText(img, 'OpenCV', (100, 100), font, 4, 255, 10, cv2.LINE_AA)
 if __name__ == '__main__':
     img_test = cv2.imread('mintest.png', cv2.IMREAD_GRAYSCALE)
     img_7seg = draw_7seg()
-    #img = cv2.bitwise_and(img_7seg, img_test)
-
-    seg_pts = create_seg_points()
-
-    seg_a_pts = seg_pts[0]
-    print(len(seg_a_pts))
-    count = 0
-    for [y, x] in seg_a_pts:
-        if (img_test[y, x] == 255):
-            count += 1
-    print(count)
-
-    seg_b_pts = seg_pts[1]
-    print(len(seg_b_pts))
-    count = 0
-    for [y, x] in seg_b_pts:
-        if (img_test[y, x] == 255):
-            count += 1
-    print(count)
     
+    seg_pts = get_seg_points()
+
+    # ベース座標。これを移動させることでマッチングを進める。
+    base_y = 0
+    base_x = 0
+    base = [ base_y, base_x ]
+
+    pattern = get_seg_light_pattern(img_test, seg_pts, base)
+    print('%02X' % pattern)
+    
+    img = cv2.bitwise_and(img_7seg, img_test)
     cv2.imshow('Title', img)
     #cv2.imwrite('test.png', img)
     cv2.waitKey(0)
