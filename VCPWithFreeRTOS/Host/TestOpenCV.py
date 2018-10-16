@@ -3,6 +3,30 @@
 import numpy as np
 import cv2
 
+############################################################
+#  前処理
+############################################################
+
+def draw_7seg():
+    """7セグ描画"""
+    img = np.zeros((SEG_HEIGHT, SEG_WIDTH, 1), np.uint8)
+    img = cv2.fillPoly(img, [POINT_SEG_A], 255)
+    img = cv2.fillPoly(img, [POINT_SEG_B], 255)
+    img = cv2.fillPoly(img, [POINT_SEG_C], 255)
+    img = cv2.fillPoly(img, [POINT_SEG_D], 255)
+    img = cv2.fillPoly(img, [POINT_SEG_E], 255)
+    img = cv2.fillPoly(img, [POINT_SEG_F], 255)
+    img = cv2.fillPoly(img, [POINT_SEG_G], 255)
+    img = cv2.circle(img, POINT_SEG_DOT_CENTER,
+                     POINT_SEG_DOT_RADIUS, 255, thickness=-1)
+    return img
+
+"""文字描画テスト"""
+"""
+font = cv2.FONT_HERSHEY_SIMPLEX
+cv2.putText(img, 'OpenCV', (100, 100), font, 4, 255, 10, cv2.LINE_AA)
+"""
+
 SEG_HEIGHT = 60
 SEG_WIDTH = 40
 
@@ -61,6 +85,10 @@ def get_seg_points():
         get_points_of_circle(POINT_SEG_DOT_CENTER, POINT_SEG_DOT_RADIUS),
     ]
 
+############################################################
+#  リアルタイム処理
+############################################################
+
 def is_seg_light(img, seg_pts):
     """入力画像imgに対してseg_ptsで指定した座標群が半分以上白ならTrueを返す"""
     and_count = 0
@@ -72,55 +100,53 @@ def is_seg_light(img, seg_pts):
     else:
         return False
 
-def get_seg_light_pattern(img, seg_pts, base):
+def get_seg_light_pattern(img, seg_pts, base=[0, 0]):
     """aaa"""
-    # TODO: baseを足す
     ptn = 0x00
+    seg_pts_based = [
+        np.array(seg_pts[0]) + np.array(base),
+        np.array(seg_pts[1]) + np.array(base),
+        np.array(seg_pts[2]) + np.array(base),
+        np.array(seg_pts[3]) + np.array(base),
+        np.array(seg_pts[4]) + np.array(base),
+        np.array(seg_pts[5]) + np.array(base),
+        np.array(seg_pts[6]) + np.array(base),
+        np.array(seg_pts[7]) + np.array(base),
+    ]
     for i in range(8):
-        if (is_seg_light(img_test, seg_pts[i])):
+        if (is_seg_light(img, seg_pts_based[i])):
             bit = 1
         else:
             bit = 0
         ptn |= (bit << (7 - i))
     return ptn
 
-def draw_7seg():
-    """7セグ描画"""
-    img = np.zeros((SEG_HEIGHT, SEG_WIDTH, 1), np.uint8)
-    img = cv2.fillPoly(img, [POINT_SEG_A], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_B], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_C], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_D], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_E], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_F], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_G], 255)
-    img = cv2.circle(img, POINT_SEG_DOT_CENTER,
-                     POINT_SEG_DOT_RADIUS, 255, thickness=-1)
-    return img
-
-"""文字描画テスト"""
-"""
-font = cv2.FONT_HERSHEY_SIMPLEX
-cv2.putText(img, 'OpenCV', (100, 100), font, 4, 255, 10, cv2.LINE_AA)
-"""
+import time
 
 if __name__ == '__main__':
-    img_test = cv2.imread('mintest.png', cv2.IMREAD_GRAYSCALE)
-    img_7seg = draw_7seg()
+    #img_test = cv2.imread('mintest.png', cv2.IMREAD_GRAYSCALE)
+    #img_7seg = draw_7seg()
+
+    #img_white = cv2.imread('black.png', cv2.IMREAD_GRAYSCALE)
+    #img_white = cv2.imread('white.png', cv2.IMREAD_GRAYSCALE)
+    img_white = cv2.imread('sample.png', cv2.IMREAD_GRAYSCALE)
     
     seg_pts = get_seg_points()
 
-    # ベース座標。これを移動させることでマッチングを進める。
-    base_y = 0
-    base_x = 0
-    base = [ base_y, base_x ]
+    start_time = time.time()
+    """測定区間ここから"""
+    for y in range(0, 480, 60):
+        for x in range(0, 640, 40):
+            pattern = get_seg_light_pattern(img_white, seg_pts, base=[y, x])
+            print('%02X' % pattern, end='')
+        print('')
+    """測定区間ここまで"""
+    end_time = time.time()
+    print(end_time - start_time)
 
-    pattern = get_seg_light_pattern(img_test, seg_pts, base)
-    print('%02X' % pattern)
-    
-    img = cv2.bitwise_and(img_7seg, img_test)
-    cv2.imshow('Title', img)
+    #img = cv2.bitwise_and(img_7seg, img_test)
+    #cv2.imshow('Title', img)
     #cv2.imwrite('test.png', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
 
