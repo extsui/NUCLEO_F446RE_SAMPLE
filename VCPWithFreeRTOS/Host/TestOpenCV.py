@@ -73,7 +73,7 @@ def get_points_of_circle(center, radius):
 
     return pixels
 
-def get_seg_points():
+def get_seven_seg_points():
     return [
         get_points_of_polygon(POINT_SEG_A),
         get_points_of_polygon(POINT_SEG_B),
@@ -90,31 +90,33 @@ def get_seg_points():
 ############################################################
 
 def is_seg_light(img, seg_pts):
-    """入力画像imgに対してseg_ptsで指定した座標群が半分以上白ならTrueを返す"""
+    """入力画像imgに対してseg_ptsで指定した座標群が半分以上閾値以上ならTrueを返す"""
     and_count = 0
     for [y, x] in seg_pts:
-        if (img[y, x] == 255):
+        if (img.item(y, x) >= 127):
             and_count += 1
     if (and_count >= len(seg_pts)):
         return True
     else:
         return False
 
-def get_seg_light_pattern(img, seg_pts, base=[0, 0]):
-    """aaa"""
+def get_seven_seg_light_pattern(img, seven_seg_pts, base=[0, 0]):
+    """入力画像imgに対してseg_ptsで指定した座標群"""
     ptn = 0x00
-    seg_pts_based = [
-        np.array(seg_pts[0]) + np.array(base),
-        np.array(seg_pts[1]) + np.array(base),
-        np.array(seg_pts[2]) + np.array(base),
-        np.array(seg_pts[3]) + np.array(base),
-        np.array(seg_pts[4]) + np.array(base),
-        np.array(seg_pts[5]) + np.array(base),
-        np.array(seg_pts[6]) + np.array(base),
-        np.array(seg_pts[7]) + np.array(base),
+    
+    # TODO: この座標群を全て事前計算しておくとさらに高速化できそう。
+    seven_seg_pts_based = [
+        np.array(seven_seg_pts[0]) + np.array(base),
+        np.array(seven_seg_pts[1]) + np.array(base),
+        np.array(seven_seg_pts[2]) + np.array(base),
+        np.array(seven_seg_pts[3]) + np.array(base),
+        np.array(seven_seg_pts[4]) + np.array(base),
+        np.array(seven_seg_pts[5]) + np.array(base),
+        np.array(seven_seg_pts[6]) + np.array(base),
+        np.array(seven_seg_pts[7]) + np.array(base),
     ]
     for i in range(8):
-        if (is_seg_light(img, seg_pts_based[i])):
+        if (is_seg_light(img, seven_seg_pts_based[i])):
             bit = 1
         else:
             bit = 0
@@ -131,13 +133,13 @@ if __name__ == '__main__':
     #img_white = cv2.imread('white.png', cv2.IMREAD_GRAYSCALE)
     img_white = cv2.imread('sample.png', cv2.IMREAD_GRAYSCALE)
     
-    seg_pts = get_seg_points()
+    seven_seg_pts = get_seven_seg_points()
 
     start_time = time.time()
     """測定区間ここから"""
     for y in range(0, 480, 60):
         for x in range(0, 640, 40):
-            pattern = get_seg_light_pattern(img_white, seg_pts, base=[y, x])
+            pattern = get_seven_seg_light_pattern(img_white, seven_seg_pts, base=[y, x])
             print('%02X' % pattern, end='')
         print('')
     """測定区間ここまで"""
