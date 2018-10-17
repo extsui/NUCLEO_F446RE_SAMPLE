@@ -27,8 +27,11 @@ font = cv2.FONT_HERSHEY_SIMPLEX
 cv2.putText(img, 'OpenCV', (100, 100), font, 4, 255, 10, cv2.LINE_AA)
 """
 
-SEG_HEIGHT = 60
-SEG_WIDTH = 40
+SCREEN_HEIGHT = 480 // 2
+SCREEN_WIDTH  = 640 // 2
+
+SEG_HEIGHT = 60 // 2
+SEG_WIDTH  = 40 // 2
 
 """サイズ(x=40, y=60)における7セグLEDの各セグメント多角形の頂点座標"""
 POINT_SEG_A = np.array([ [14, 7],  [32, 7],  [33, 8],  [30, 11], [16, 11], [13, 8]  ], np.int32)
@@ -40,6 +43,17 @@ POINT_SEG_F = np.array([ [11, 9],  [14, 12], [11, 26], [9, 28],  [7, 26],  [10, 
 POINT_SEG_G = np.array([ [13, 27], [27, 27], [29, 29], [27, 31], [13, 31], [11, 29] ], np.int32)
 POINT_SEG_DOT_CENTER = (35, 49)
 POINT_SEG_DOT_RADIUS = 3
+
+POINT_SEG_A //= 2
+POINT_SEG_B //= 2
+POINT_SEG_C //= 2
+POINT_SEG_D //= 2
+POINT_SEG_E //= 2
+POINT_SEG_F //= 2
+POINT_SEG_G //= 2
+POINT_SEG_DOT_CENTER = (POINT_SEG_DOT_CENTER[0] // 2,
+                        POINT_SEG_DOT_CENTER[1] // 2)
+POINT_SEG_DOT_RADIUS = 2
 
 def get_points_of_polygon(poly_points):
     """多角形を構成する座標群を返す"""
@@ -103,7 +117,7 @@ def is_seg_light(img, seg_pts):
 def get_seven_seg_light_pattern(img, seven_seg_pts, base=[0, 0]):
     """入力画像imgに対してseg_ptsで指定した座標群"""
     ptn = 0x00
-    
+
     # TODO: この座標群を全て事前計算しておくとさらに高速化できそう。
     seven_seg_pts_based = [
         np.array(seven_seg_pts[0]) + np.array(base),
@@ -123,23 +137,27 @@ def get_seven_seg_light_pattern(img, seven_seg_pts, base=[0, 0]):
         ptn |= (bit << (7 - i))
     return ptn
 
+############################################################
+
 import time
 
 if __name__ == '__main__':
     #img_test = cv2.imread('mintest.png', cv2.IMREAD_GRAYSCALE)
     #img_7seg = draw_7seg()
+    
+    #img = cv2.imread('black.png', cv2.IMREAD_GRAYSCALE)
+    #img = cv2.imread('white.png', cv2.IMREAD_GRAYSCALE)
+    img = cv2.imread('sample.png', cv2.IMREAD_GRAYSCALE)
 
-    #img_white = cv2.imread('black.png', cv2.IMREAD_GRAYSCALE)
-    #img_white = cv2.imread('white.png', cv2.IMREAD_GRAYSCALE)
-    img_white = cv2.imread('sample.png', cv2.IMREAD_GRAYSCALE)
+    img = cv2.resize(img, None, fx=0.5, fy=0.5)
     
     seven_seg_pts = get_seven_seg_points()
 
     start_time = time.time()
     """測定区間ここから"""
-    for y in range(0, 480, 60):
-        for x in range(0, 640, 40):
-            pattern = get_seven_seg_light_pattern(img_white, seven_seg_pts, base=[y, x])
+    for y in range(0, SCREEN_HEIGHT, SEG_HEIGHT):
+        for x in range(0, SCREEN_WIDTH, SEG_WIDTH):
+            pattern = get_seven_seg_light_pattern(img, seven_seg_pts, base=[y, x])
             print('%02X' % pattern, end='')
         print('')
     """測定区間ここまで"""
