@@ -209,6 +209,16 @@ def exec_csv_spectrum():
     start_time = time.time()
     
     for row in reader:        
+    
+        """
+        モード切り替え判定
+        """
+        ser.write('md\n'.encode())
+        line = ser.readline()
+        if (int(line) is 1):
+            print('Mode Switch!')
+            break
+
         # ゲイン調整
         if ((count % 10) == 0):
             gain = read_gain(ser)
@@ -312,6 +322,16 @@ def exec_wav_spectrum():
     start_time = time.time()
 
     while (stream.is_active()):
+
+        """
+        モード切り替え判定
+        """
+        ser.write('md\n'.encode())
+        line = ser.readline()
+        if (int(line) is 1):
+            print('Mode Switch!')
+            break
+
         # ゲイン調整
         if ((count % 10) == 0):
             gain = read_gain(ser)
@@ -454,6 +474,15 @@ def exec_badapple():
     while (count < frame_num):
 
         """
+        モード切り替え判定
+        """
+        ser.write('md\n'.encode())
+        line = ser.readline()
+        if (int(line) is 1):
+            print('Mode Switch!')
+            break
+
+        """
         # ゲイン調整
         if ((count % 10) == 0):
             gain = read_gain(ser)
@@ -525,8 +554,10 @@ def exec_badapple():
 ######################################################################
 
 if __name__ == '__main__':
-    #exec_csv_spectrum()
-    #exec_wav_spectrum()
-    exec_badapple()
-    # TODO:
-    # exec_mic_spectrum()
+    while (True):
+        exec_csv_spectrum()
+        exec_wav_spectrum()
+        exec_badapple()
+        # TODO:
+        # exec_mic_spectrum()
+
