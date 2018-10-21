@@ -27,11 +27,14 @@ font = cv2.FONT_HERSHEY_SIMPLEX
 cv2.putText(img, 'OpenCV', (100, 100), font, 4, 255, 10, cv2.LINE_AA)
 """
 
-SCREEN_HEIGHT = 480 // 2
-SCREEN_WIDTH  = 640 // 2
+# TODO: 1に戻すと動作しなくなってる
+SCALE = 2
 
-SEG_HEIGHT = 60 // 2
-SEG_WIDTH  = 40 // 2
+SCREEN_HEIGHT = 480 // SCALE
+SCREEN_WIDTH  = 640 // SCALE
+
+SEG_HEIGHT = 60 // SCALE
+SEG_WIDTH  = 40 // SCALE
 
 """サイズ(x=40, y=60)における7セグLEDの各セグメント多角形の頂点座標"""
 POINT_SEG_A = np.array([ [14, 7],  [32, 7],  [33, 8],  [30, 11], [16, 11], [13, 8]  ], np.int32)
@@ -44,15 +47,15 @@ POINT_SEG_G = np.array([ [13, 27], [27, 27], [29, 29], [27, 31], [13, 31], [11, 
 POINT_SEG_DOT_CENTER = (35, 49)
 POINT_SEG_DOT_RADIUS = 3
 
-POINT_SEG_A //= 2
-POINT_SEG_B //= 2
-POINT_SEG_C //= 2
-POINT_SEG_D //= 2
-POINT_SEG_E //= 2
-POINT_SEG_F //= 2
-POINT_SEG_G //= 2
-POINT_SEG_DOT_CENTER = (POINT_SEG_DOT_CENTER[0] // 2,
-                        POINT_SEG_DOT_CENTER[1] // 2)
+POINT_SEG_A //= SCALE
+POINT_SEG_B //= SCALE
+POINT_SEG_C //= SCALE
+POINT_SEG_D //= SCALE
+POINT_SEG_E //= SCALE
+POINT_SEG_F //= SCALE
+POINT_SEG_G //= SCALE
+POINT_SEG_DOT_CENTER = (POINT_SEG_DOT_CENTER[0] // SCALE,
+                        POINT_SEG_DOT_CENTER[1] // SCALE)
 POINT_SEG_DOT_RADIUS = 2
 
 def get_points_of_polygon(poly_points):
@@ -233,9 +236,19 @@ if __name__ == '__main__':
 
     print(end_time - start_time)
 
+    """パターン出力結果確認"""
+    img =  np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 1), np.uint8)
+    for y in range(8):
+        for x in range(16):
+            bit_pattern = pattern[y][x]
+            for seg in range(8):
+                if (bit_pattern & (1 << (7 - seg))):
+                    for point in all_matching_points[y][x][seg]:
+                        img[point[0], point[1]] = 255
+    
     #img = cv2.bitwise_and(img_7seg, img_test)
-    #cv2.imshow('Title', img)
+    cv2.imshow('Title', img)
     #cv2.imwrite('test.png', img)
-    #cv2.waitKey(0)
-    #cv2.destroyAllWindows()
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
