@@ -6,28 +6,15 @@ import cv2
 ############################################################
 #  前処理
 ############################################################
-
-def draw_7seg():
-    """7セグ描画"""
-    img = np.zeros((SEG_HEIGHT, SEG_WIDTH, 1), np.uint8)
-    img = cv2.fillPoly(img, [POINT_SEG_A], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_B], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_C], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_D], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_E], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_F], 255)
-    img = cv2.fillPoly(img, [POINT_SEG_G], 255)
-    img = cv2.circle(img, POINT_SEG_DOT_CENTER,
-                     POINT_SEG_DOT_RADIUS, 255, thickness=-1)
-    return img
-
 """文字描画テスト"""
 """
 font = cv2.FONT_HERSHEY_SIMPLEX
 cv2.putText(img, 'OpenCV', (100, 100), font, 4, 255, 10, cv2.LINE_AA)
 """
 
-# TODO: 1に戻すと動作しなくなってる
+"""全体のスケール
+1(640, 480)を想定していたが処理速度が
+遅かったため、2(320, 240)に変更。"""
 SCALE = 2
 
 SCREEN_HEIGHT = 480 // SCALE
@@ -56,7 +43,7 @@ POINT_SEG_F //= SCALE
 POINT_SEG_G //= SCALE
 POINT_SEG_DOT_CENTER = (POINT_SEG_DOT_CENTER[0] // SCALE,
                         POINT_SEG_DOT_CENTER[1] // SCALE)
-POINT_SEG_DOT_RADIUS = 2
+POINT_SEG_DOT_RADIUS //= SCALE
 
 def get_points_of_polygon(poly_points):
     """多角形を構成する座標群を返す"""
@@ -176,8 +163,18 @@ def get_seven_seg_light_pattern(img, seven_seg_pts, base=[0, 0]):
     return ptn
 
 ############################################################
-
 import time
+
+def create_maching_image(all_matching_points, pattern):
+    img = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 1), np.uint8)
+    for y in range(8):
+        for x in range(16):
+            bit_pattern = pattern[y][x]
+            for seg in range(8):
+                if (bit_pattern & (1 << (7 - seg))):
+                    for point in all_matching_points[y][x][seg]:
+                        img[point[0], point[1]] = 255
+    return img
 
 if __name__ == '__main__':
     #img_test = cv2.imread('mintest.png', cv2.IMREAD_GRAYSCALE)
@@ -187,7 +184,7 @@ if __name__ == '__main__':
     #img = cv2.imread('white.png', cv2.IMREAD_GRAYSCALE)
     img = cv2.imread('sample.png', cv2.IMREAD_GRAYSCALE)
 
-    img = cv2.resize(img, None, fx=0.5, fy=0.5)
+    img = cv2.resize(img, None, fx=1/SCALE, fy=1/SCALE)
 
     seven_seg_points = get_seven_seg_points()
     all_matching_points = get_all_matching_points(seven_seg_points)
@@ -237,14 +234,7 @@ if __name__ == '__main__':
     print(end_time - start_time)
 
     """パターン出力結果確認"""
-    img =  np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 1), np.uint8)
-    for y in range(8):
-        for x in range(16):
-            bit_pattern = pattern[y][x]
-            for seg in range(8):
-                if (bit_pattern & (1 << (7 - seg))):
-                    for point in all_matching_points[y][x][seg]:
-                        img[point[0], point[1]] = 255
+    img = create_maching_image(all_matching_points, pattern)
     
     #img = cv2.bitwise_and(img_7seg, img_test)
     cv2.imshow('Title', img)
