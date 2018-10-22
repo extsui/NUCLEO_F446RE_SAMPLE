@@ -6,22 +6,22 @@ import cv2
 ############################################################
 #  前処理
 ############################################################
-"""文字描画テスト"""
-"""
-font = cv2.FONT_HERSHEY_SIMPLEX
-cv2.putText(img, 'OpenCV', (100, 100), font, 4, 255, 10, cv2.LINE_AA)
-"""
-
 """全体のスケール
 1(640, 480)を想定していたが処理速度が
 遅かったため、2(320, 240)に変更。"""
 SCALE = 2
 
+"""画面サイズ"""
 SCREEN_HEIGHT = 480 // SCALE
-SCREEN_WIDTH  = 640 // SCALE
+SCREEN_WIDTH  = 960 // SCALE
 
+"""7セグ1個のサイズ"""
 SEG_HEIGHT = 60 // SCALE
 SEG_WIDTH  = 40 // SCALE
+
+"""画面内の7セグ数"""
+SEG_X_NUM = SCREEN_WIDTH // SEG_WIDTH
+SEG_Y_NUM = SCREEN_HEIGHT // SEG_HEIGHT 
 
 """サイズ(x=40, y=60)における7セグLEDの各セグメント多角形の頂点座標"""
 POINT_SEG_A = np.array([ [14, 7],  [32, 7],  [33, 8],  [30, 11], [16, 11], [13, 8]  ], np.int32)
@@ -165,36 +165,10 @@ def get_seven_seg_light_pattern(img, seven_seg_pts, base=[0, 0]):
 ############################################################
 import time
 
-def create_maching_image(all_matching_points, pattern):
-    img = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 1), np.uint8)
-    for y in range(8):
-        for x in range(16):
-            bit_pattern = pattern[y][x]
-            for seg in range(8):
-                if (bit_pattern & (1 << (7 - seg))):
-                    for point in all_matching_points[y][x][seg]:
-                        img[point[0], point[1]] = 255
-    return img
-
-if __name__ == '__main__':
-    #img_test = cv2.imread('mintest.png', cv2.IMREAD_GRAYSCALE)
-    #img_7seg = draw_7seg()
-    
-    #img = cv2.imread('black.png', cv2.IMREAD_GRAYSCALE)
-    #img = cv2.imread('white.png', cv2.IMREAD_GRAYSCALE)
-    img = cv2.imread('sample.png', cv2.IMREAD_GRAYSCALE)
-
-    img = cv2.resize(img, None, fx=1/SCALE, fy=1/SCALE)
-
-    seven_seg_points = get_seven_seg_points()
-    all_matching_points = get_all_matching_points(seven_seg_points)
-    
-    pattern = np.zeros((8, 16, 1), np.uint8)
-
-    start_time = time.time()
-    """測定区間ここから"""
-    for seven_y in range(8):
-        for seven_x in range(16):
+def create_seven_seg_pattern(img, all_matching_points):
+    pattern = np.zeros((SEG_Y_NUM, SEG_X_NUM, 1), np.uint8)
+    for seven_y in range(SEG_Y_NUM):
+        for seven_x in range(SEG_X_NUM):
             seg_a_pts   = all_matching_points[seven_y][seven_x][0]
             seg_b_pts   = all_matching_points[seven_y][seven_x][1]
             seg_c_pts   = all_matching_points[seven_y][seven_x][2]
@@ -222,19 +196,55 @@ if __name__ == '__main__':
             if (is_seg_light(img, seg_dot_pts)):
                 bit_pattern |= 0x01
             pattern[seven_y][seven_x] = bit_pattern
-            
-    """測定区間ここまで"""
-    end_time = time.time()
-    
-    for y in range(8):
-        for x in range(16):
+    return pattern
+
+def create_matching_image(all_matching_points, pattern):
+    img = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 1), np.uint8)
+    for y in range(SEG_Y_NUM):
+        for x in range(SEG_X_NUM):
+            bit_pattern = pattern[y][x]
+            for seg in range(8):
+                if (bit_pattern & (1 << (7 - seg))):
+                    for point in all_matching_points[y][x][seg]:
+                        img[point[0], point[1]] = 255
+    return img
+
+def print_seven_seg_pattern(pattern):
+    for y in range(SEG_Y_NUM):
+        for x in range(SEG_X_NUM):
             print('%02X' % int(pattern[y][x]), end='')
         print('')
 
+if __name__ == '__main__':
+    #img_test = cv2.imread('mintest.png', cv2.IMREAD_GRAYSCALE)
+    #img_7seg = draw_7seg()
+    
+    #img = cv2.imread('black.png', cv2.IMREAD_GRAYSCALE)
+    #img = cv2.imread('white.png', cv2.IMREAD_GRAYSCALE)
+    #img = cv2.imread('sample.png', cv2.IMREAD_GRAYSCALE)
+    #img = cv2.resize(img, None, fx=1/SCALE, fy=1/SCALE)
+
+    img = np.full((SCREEN_HEIGHT, SCREEN_WIDTH), 255)
+    #img = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 1), np.uint8)
+
+    """文字描画テスト"""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(img, '0123456789', (5, 155), font, 4, 0, 10, cv2.LINE_AA)
+
+    seven_seg_points = get_seven_seg_points()
+    all_matching_points = get_all_matching_points(seven_seg_points)
+    
+    start_time = time.time()
+    """測定区間ここから"""
+    pattern = create_seven_seg_pattern(img, all_matching_points)
+    """測定区間ここまで"""
+    end_time = time.time()
     print(end_time - start_time)
 
+    print_seven_seg_pattern(pattern)
+    
     """パターン出力結果確認"""
-    img = create_maching_image(all_matching_points, pattern)
+    img = create_matching_image(all_matching_points, pattern)
     
     #img = cv2.bitwise_and(img_7seg, img_test)
     cv2.imshow('Title', img)
