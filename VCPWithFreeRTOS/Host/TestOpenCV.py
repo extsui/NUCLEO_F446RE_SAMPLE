@@ -47,7 +47,7 @@ POINT_SEG_DOT_RADIUS //= SCALE
 
 def get_points_of_polygon(poly_points):
     """多角形を構成する座標群を返す"""
-    img = np.zeros((SEG_HEIGHT, SEG_WIDTH, 1), np.uint8)
+    img = np.zeros((SEG_HEIGHT, SEG_WIDTH), np.uint8)
     img = cv2.fillPoly(img, [poly_points], 255)
 
     height = img.shape[0]
@@ -63,7 +63,7 @@ def get_points_of_polygon(poly_points):
 
 def get_points_of_circle(center, radius):
     """円を構成する座標群を返す"""
-    img = np.zeros((SEG_HEIGHT, SEG_WIDTH, 1), np.uint8)
+    img = np.zeros((SEG_HEIGHT, SEG_WIDTH), np.uint8)
     img = cv2.circle(img, center, radius, 255, thickness=-1)
 
     height = img.shape[0]
@@ -166,7 +166,7 @@ def get_seven_seg_light_pattern(img, seven_seg_pts, base=[0, 0]):
 import time
 
 def create_seven_seg_pattern(img, all_matching_points):
-    pattern = np.zeros((SEG_Y_NUM, SEG_X_NUM, 1), np.uint8)
+    pattern = np.zeros((SEG_Y_NUM, SEG_X_NUM), np.uint8)
     for seven_y in range(SEG_Y_NUM):
         for seven_x in range(SEG_X_NUM):
             seg_a_pts   = all_matching_points[seven_y][seven_x][0]
@@ -199,7 +199,7 @@ def create_seven_seg_pattern(img, all_matching_points):
     return pattern
 
 def create_matching_image(all_matching_points, pattern):
-    img = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 1), np.uint8)
+    img = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH), np.uint8)
     for y in range(SEG_Y_NUM):
         for x in range(SEG_X_NUM):
             bit_pattern = pattern[y][x]
@@ -214,41 +214,28 @@ def print_seven_seg_pattern(pattern):
         for x in range(SEG_X_NUM):
             print('%02X' % int(pattern[y][x]), end='')
         print('')
+    print('')
 
 if __name__ == '__main__':
-    #img_test = cv2.imread('mintest.png', cv2.IMREAD_GRAYSCALE)
-    #img_7seg = draw_7seg()
-    
-    #img = cv2.imread('black.png', cv2.IMREAD_GRAYSCALE)
-    #img = cv2.imread('white.png', cv2.IMREAD_GRAYSCALE)
-    #img = cv2.imread('sample.png', cv2.IMREAD_GRAYSCALE)
-    #img = cv2.resize(img, None, fx=1/SCALE, fy=1/SCALE)
-
-    img = np.full((SCREEN_HEIGHT, SCREEN_WIDTH), 255)
-    #img = np.zeros((SCREEN_HEIGHT, SCREEN_WIDTH, 1), np.uint8)
-
-    """文字描画テスト"""
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(img, '0123456789', (5, 155), font, 4, 0, 10, cv2.LINE_AA)
-
     seven_seg_points = get_seven_seg_points()
     all_matching_points = get_all_matching_points(seven_seg_points)
     
-    start_time = time.time()
-    """測定区間ここから"""
-    pattern = create_seven_seg_pattern(img, all_matching_points)
-    """測定区間ここまで"""
-    end_time = time.time()
-    print(end_time - start_time)
+    count = 0
+    while True:
+        img = np.full((SCREEN_HEIGHT, SCREEN_WIDTH), 255)
+        
+        """文字描画テスト"""
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(img, '%d' % (count), (10, 155), font, 4, 0, 10, cv2.LINE_AA)
+        count += 1
 
-    print_seven_seg_pattern(pattern)
-    
-    """パターン出力結果確認"""
-    img = create_matching_image(all_matching_points, pattern)
-    
-    #img = cv2.bitwise_and(img_7seg, img_test)
-    cv2.imshow('Title', img)
-    #cv2.imwrite('test.png', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        """入力画像から7セグパターン生成"""
+        pattern = create_seven_seg_pattern(img, all_matching_points)
+        
+        """パターン出力結果確認"""
+        img = create_matching_image(all_matching_points, pattern)
+        cv2.imshow('Title', img)
 
+        k = cv2.waitKey(1)
+        if k == 27:
+            break
