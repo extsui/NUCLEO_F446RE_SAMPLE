@@ -553,11 +553,164 @@ def exec_badapple():
     
 ######################################################################
 
+import copy
+import math
+
+class MicSpectrum:  
+    """ 単純置換型
+    2, 2, 2, 2,
+    2, 2, 2, 2,
+    4, 4, 4, 4,
+    8, 8, 32, 32,
+    10, 16, 24, 32,
+    48, 50, 76, 92,
+    """
+    bandHz = [
+        2, 2, 2, 2,
+        2, 2, 2, 2,
+        4, 4, 4, 4,
+        8, 8, 32, 32,
+        10, 16, 24, 32,
+        48, 50, 76, 92,
+    ]
+
+    def __init__(self):
+        # マイクインプット
+        self.CHUNK = 1024
+        # 8000だと異常に遅くなる。おそらくH/Wサポート外の可能性有り。
+        self.RATE = 44100
+        self.update_msec = 50
+        self.audio = pyaudio.PyAudio()
+        self.stream = self.audio.open(format = pyaudio.paInt16,
+                                      channels = 1,
+                                      rate = self.RATE,
+                                      frames_per_buffer = self.CHUNK,
+                                      input = True,
+                                      output = False,
+                                      stream_callback = self.audio_input)
+        
+        # 音声データの格納場所(プロットデータ)
+        self.buffer = np.zeros(self.CHUNK)
+        
+    """
+    TODO:
+    ある程度データを貯めてから一気に処理する．
+    これはプロットにかかる時間よりもPyAudioの処理に時間がかかるため．
+    """
+    def audio_input(self, data, frame_count, time_info, status_flag):
+        # frames_per_bufferサイズずつ渡される(=frame_count)
+        self.buffer = np.frombuffer(data, dtype="int16") / 32768.0
+        return (data, pyaudio.paContinue)
+
+    def analyze(self):
+        signal = copy.copy(self.buffer)
+        spec = self.stft(signal)
+
+        toStep = 0
+        fromStep = 0
+        specSize = 513
+
+        result = []
+        for i in range(len(bandHz)):
+            bandStep = bandHz[i]
+            
+            toStep += bandStep
+            if (toStep > specSize):
+                toStep = specSize
+
+            bandAve = 0.0
+            j = fromStep
+            while (j < toStep):
+                bandDB = 0.0
+                if (abs(spec[j]) >= 0.001):
+                    bandDB = 2 * (20 * ((math.log10(abs(spec[j])))))
+                    bandDB = (20 * ((math.log10(abs(spec[j])))))
+                    
+                    if (bandDB < 0):
+                        bandDB = 0
+                bandAve += bandDB
+                j += 1
+            # 平均値
+            bandAve /= bandStep
+            fromStep = toStep
+            
+            # 最終加工
+            bandAve /= 1.5
+
+            result.append(int(bandAve))
+
+        return result
+
+    def stft(self, data):
+        data = np.hamming(len(data)) * data
+        data = np.fft.fft(data)
+        #data = np.abs(data)
+        
+        # スペクトルデータの加工
+        #data = np.sqrt(data) * 2
+        #data = map(int, data)
+        
+        return data
+
+def exec_mic_spectrum():
+    # 仮想COMポートなのでボーレートは無意味
+    ser = serial.Serial('COM52', 1000000)
+
+    mic_spec = MicSpectrum()
+
+    count = 0
+    gain = 1.00
+    fps = 60.0
+    
+    start_time = time.time()
+
+    while (True):
+        """
+        モード切り替え判定
+        """
+        ser.write('md\n'.encode())
+        line = ser.readline()
+        if (int(line) is 1):
+            print('Mode Switch!')
+            break
+
+        # ゲイン調整
+        if ((count % 10) == 0):
+            gain = read_gain(ser)
+            print('gain=%.2f' % gain)
+
+        spec = mic_spec.analyze()
+        panel = spec_to_panel(spec)
+
+        # 更新回数表示
+        panel[0][23] = num_to_pattern[count // 1 % 10]
+        panel[0][22] = num_to_pattern[count // 10 % 10]
+        panel[0][21] = num_to_pattern[count // 100 % 10]
+        panel[0][20] = num_to_pattern[count // 1000 % 10]
+  
+        xfer_data = panel_to_command(panel, 0x01)
+        write_display(ser, xfer_data)
+        
+        # fpsの値に合わせて規定時間になるまで待つ
+        expected_time = start_time + (((1000.0 / fps) * count) / 1000)
+        while (time.time() < expected_time):
+            time.sleep(0.001)
+            print('_', end='')
+        
+        count += 1
+    
+    elapsed_time = time.time() - start_time
+    ser.close()
+    
+    print('%f [s]' % elapsed_time)
+    print('fps = %f' % (count / elapsed_time))
+    print('Done.')
+
+######################################################################
+
 if __name__ == '__main__':
     while (True):
         exec_csv_spectrum()
         exec_wav_spectrum()
+        exec_mic_spectrum()
         exec_badapple()
-        # TODO:
-        # exec_mic_spectrum()
-
