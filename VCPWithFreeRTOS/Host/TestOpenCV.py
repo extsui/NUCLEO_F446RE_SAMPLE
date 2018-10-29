@@ -216,25 +216,50 @@ def print_seven_seg_pattern(pattern):
         print('')
     print('')
 
+from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageChops
+
 if __name__ == '__main__':
     seven_seg_points = get_seven_seg_points()
     all_matching_points = get_all_matching_points(seven_seg_points)
     
+    font = ImageFont.truetype('C:\Windows\Fonts\meiryob.ttc', 144)
+    
+    print('Font: Load OK!')
+
     count = 0
-    while True:
-        img = np.full((SCREEN_HEIGHT, SCREEN_WIDTH), 255)
+    for i in range(0, 10000, 1):
+        """加工元画像"""
+        pil_img = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT))
+        draw = ImageDraw.Draw(pil_img)
+        draw.text(( - (i * 8 % (SCREEN_WIDTH * 4)) + 1000, 10), u'ext@漢字明朝', fill=255, font=font)
+
+        back_img = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT))
+        draw_back = ImageDraw.Draw(back_img)
+
+        radius = (i*8) % ((SCREEN_WIDTH * 1.5) // 2)
+        fill_color = 0
+        if ((i*8) % (SCREEN_WIDTH * 1.5) > radius):
+            fill_color = 0
+            back_img = ImageChops.invert(back_img)
+        else:
+            fill_color = 255
         
-        """文字描画テスト"""
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(img, '%d' % (count), (10, 155), font, 4, 0, 10, cv2.LINE_AA)
-        count += 1
+        box_top_xy = (SCREEN_WIDTH // 2 - radius, SCREEN_HEIGHT // 2 - radius)
+        box_bottom_xy = (SCREEN_WIDTH // 2 + radius, SCREEN_HEIGHT // 2 + radius)
+        draw_back.ellipse((box_top_xy, box_bottom_xy), fill=fill_color)
+        
+        pil_img = ImageChops.logical_xor(pil_img, back_img)
+
+        """PIL画像からOpenCV画像に変換"""
+        pil_img = pil_img.convert('L')
+        cv_img = np.asarray(pil_img)
 
         """入力画像から7セグパターン生成"""
-        pattern = create_seven_seg_pattern(img, all_matching_points)
+        pattern = create_seven_seg_pattern(cv_img, all_matching_points)
         
         """パターン出力結果確認"""
-        img = create_matching_image(all_matching_points, pattern)
-        cv2.imshow('Title', img)
+        cv_img = create_matching_image(all_matching_points, pattern)
+        cv2.imshow('Title', cv_img)
 
         k = cv2.waitKey(1)
         if k == 27:
