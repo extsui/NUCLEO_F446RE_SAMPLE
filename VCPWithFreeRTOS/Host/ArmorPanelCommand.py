@@ -249,8 +249,9 @@ def exec_csv_spectrum():
     elapsed_time = time.time() - start_time
     ser.close()
     
-    print('%f [s]' % elapsed_time)
-    print('fps = %f' % (count / elapsed_time))
+    if (elapsed_time > 0):
+        print('%f [s]' % elapsed_time)
+        print('fps = %f' % (count / elapsed_time))
     print('Done.')
 
 ######################################################################
@@ -280,7 +281,7 @@ bandHz = [
      64,64,96,128,
 ]
 
-FFT_SIZE = 1024
+FFT_SIZE = 1024*4
 
 def exec_wav_spectrum():
     # 仮想COMポートなのでボーレートは無意味
@@ -415,9 +416,10 @@ def exec_wav_spectrum():
     stream.close()
     wavefile.close()
     pa.terminate()
-    
-    print('%f [s]' % elapsed_time)
-    print('fps = %f' % (count / elapsed_time))
+
+    if (elapsed_time > 0):
+        print('%f [s]' % elapsed_time)
+        print('fps = %f' % (count / elapsed_time))
     print('Done.')
 
 ######################################################################
@@ -546,9 +548,9 @@ def exec_badapple():
     stream.close()
     wavefile.close()
     pa.terminate()
-    
-    print('%f [s]' % elapsed_time)
-    print('fps = %f' % (count / elapsed_time))
+    if (elapsed_time > 0):
+        print('%f [s]' % elapsed_time)
+        print('fps = %f' % (count / elapsed_time))
     print('Done.')
     
 ######################################################################
@@ -701,9 +703,10 @@ def exec_mic_spectrum():
     
     elapsed_time = time.time() - start_time
     ser.close()
-    
-    print('%f [s]' % elapsed_time)
-    print('fps = %f' % (count / elapsed_time))
+
+    if (elapsed_time > 0):
+        print('%f [s]' % elapsed_time)
+        print('fps = %f' % (count / elapsed_time))
     print('Done.')
 
 ######################################################################
@@ -725,6 +728,15 @@ def exec_display():
     start_time = time.time()
 
     while (True):
+        """
+        モード切り替え判定
+        """
+        ser.write('md\n'.encode())
+        line = ser.readline()
+        if (int(line) is 1):
+            print('Mode Switch!')
+            break
+        
         pil_img = Image.new('1', (spg.SCREEN_WIDTH, spg.SCREEN_HEIGHT))
         draw = ImageDraw.Draw(pil_img)
         
@@ -780,20 +792,18 @@ def exec_display():
     
     ser.close()
 
-    print('%f [s]' % elapsed_time)
-    print('fps = %f' % (count / elapsed_time))
+    if (elapsed_time > 0):
+        print('%f [s]' % elapsed_time)
+        print('fps = %f' % (count / elapsed_time))
     print('Done.')
 
 ######################################################################
 
 if __name__ == '__main__':
-
-    exec_display()
-
-    '''
     while (True):
         exec_csv_spectrum()
         exec_wav_spectrum()
         exec_mic_spectrum()
         exec_badapple()
-    '''
+        exec_display()
+    
