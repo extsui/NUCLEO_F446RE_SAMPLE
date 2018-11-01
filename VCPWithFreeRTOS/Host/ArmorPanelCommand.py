@@ -713,6 +713,9 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageChops
 from datetime import datetime
 
 def exec_display():
+    
+    ser = serial.Serial('COM52', 1000000)
+
     spg = SegPatternGenerator()
     font = ImageFont.truetype('C:\Windows\Fonts\msgothic.ttc', 180)
 
@@ -752,7 +755,7 @@ def exec_display():
         """微調整"""
         pattern[0][21] &= ~0b0000_0001
         pattern[1][23] |=  0b0000_0001
-        
+        '''
         """パターン出力結果確認"""
         cv_img = spg.create_seven_seg_pattern_image(pattern)
         cv2.imshow('Title', cv_img)
@@ -760,7 +763,10 @@ def exec_display():
         k = cv2.waitKey(1)
         if k == 27:
             break
-        
+        '''
+        xfer_data = panel_to_command(pattern, 0x01)
+        write_display(ser, xfer_data)
+
         # fpsの値に合わせて規定時間になるまで待つ
         expected_time = start_time + (((1000.0 / fps) * count) / 1000)
         while (time.time() < expected_time):
@@ -772,6 +778,8 @@ def exec_display():
     
     elapsed_time = time.time() - start_time
     
+    ser.close()
+
     print('%f [s]' % elapsed_time)
     print('fps = %f' % (count / elapsed_time))
     print('Done.')
