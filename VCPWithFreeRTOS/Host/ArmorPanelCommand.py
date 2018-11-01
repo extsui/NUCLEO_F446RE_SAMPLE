@@ -708,9 +708,84 @@ def exec_mic_spectrum():
 
 ######################################################################
 
+from SegPatternGenerator import *
+from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageChops
+from datetime import datetime
+
+def exec_display():
+    spg = SegPatternGenerator()
+    font = ImageFont.truetype('C:\Windows\Fonts\msgothic.ttc', 180)
+
+    count = 0
+    fps = 2.0
+
+    start_time = time.time()
+
+    while (True):
+        pil_img = Image.new('1', (spg.SCREEN_WIDTH, spg.SCREEN_HEIGHT))
+        draw = ImageDraw.Draw(pil_img)
+        
+        """時計表示"""
+        now = datetime.now()
+        text = '%02d:%02d' % (now.hour, now.minute)
+        """0.5秒置きにコロンを点滅"""
+        if ((now.microsecond / 1000) >= 500):
+            text = text.replace(':', ' ')
+        draw.text((10, 31), text, fill=255, font=font)
+        
+        """右上の一部領域を塗りつぶし"""
+        draw.polygon(((420, 0), (480, 60), (480, 0)), fill=255)
+
+        """ネガの方が見やすいので反転"""
+        pil_img = ImageChops.invert(pil_img)
+
+        """PIL画像からOpenCV画像に変換"""
+        pil_img = pil_img.convert('L')
+        cv_img = np.asarray(pil_img)
+
+        """入力画像から7セグパターン生成"""
+        pattern = spg.match(cv_img)
+        
+        """秒表示"""
+        pattern[0][22] = num_to_pattern[now.second // 10 % 10]
+        pattern[0][23] = num_to_pattern[now.second // 1 % 10]
+        """微調整"""
+        pattern[0][21] &= ~0b0000_0001
+        pattern[1][23] |=  0b0000_0001
+        
+        """パターン出力結果確認"""
+        cv_img = spg.create_seven_seg_pattern_image(pattern)
+        cv2.imshow('Title', cv_img)
+        
+        k = cv2.waitKey(1)
+        if k == 27:
+            break
+        
+        # fpsの値に合わせて規定時間になるまで待つ
+        expected_time = start_time + (((1000.0 / fps) * count) / 1000)
+        while (time.time() < expected_time):
+            time.sleep(0.001)
+            print('_', end='')
+        print('')
+        
+        count += 1
+    
+    elapsed_time = time.time() - start_time
+    
+    print('%f [s]' % elapsed_time)
+    print('fps = %f' % (count / elapsed_time))
+    print('Done.')
+
+######################################################################
+
 if __name__ == '__main__':
+
+    exec_display()
+
+    '''
     while (True):
         exec_csv_spectrum()
         exec_wav_spectrum()
         exec_mic_spectrum()
         exec_badapple()
+    '''
