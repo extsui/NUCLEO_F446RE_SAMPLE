@@ -48,9 +48,9 @@ class SegPatternGenerator:
     #  事前処理
     ############################################################
     def __init__(self):
-        self.all_matching_points = self.get_all_matching_points()
+        self.all_matching_points = self.__get_all_matching_points()
         
-    def get_points_of_polygon(self, poly_points):
+    def __get_points_of_polygon(self, poly_points):
         """多角形を構成する座標群を返す"""
         img = np.zeros((SegPatternGenerator.SEG_HEIGHT,
                         SegPatternGenerator.SEG_WIDTH), np.uint8)
@@ -62,7 +62,7 @@ class SegPatternGenerator:
                     points.append([y, x])
         return points
 
-    def get_points_of_circle(self, center, radius):
+    def __get_points_of_circle(self, center, radius):
         """円を構成する座標群を返す"""
         img = np.zeros((SegPatternGenerator.SEG_HEIGHT,
                         SegPatternGenerator.SEG_WIDTH), np.uint8)
@@ -74,21 +74,21 @@ class SegPatternGenerator:
                     points.append([y, x])
         return points
 
-    def get_seven_seg_points(self):
+    def __get_seven_seg_points(self):
         """7セグを構成する座標群を返す"""
         return [
-            self.get_points_of_polygon(SegPatternGenerator.POINT_SEG_A),
-            self.get_points_of_polygon(SegPatternGenerator.POINT_SEG_B),
-            self.get_points_of_polygon(SegPatternGenerator.POINT_SEG_C),
-            self.get_points_of_polygon(SegPatternGenerator.POINT_SEG_D),
-            self.get_points_of_polygon(SegPatternGenerator.POINT_SEG_E),
-            self.get_points_of_polygon(SegPatternGenerator.POINT_SEG_F),
-            self.get_points_of_polygon(SegPatternGenerator.POINT_SEG_G),
-            self.get_points_of_circle(SegPatternGenerator.POINT_SEG_DOT_CENTER,
+            self.__get_points_of_polygon(SegPatternGenerator.POINT_SEG_A),
+            self.__get_points_of_polygon(SegPatternGenerator.POINT_SEG_B),
+            self.__get_points_of_polygon(SegPatternGenerator.POINT_SEG_C),
+            self.__get_points_of_polygon(SegPatternGenerator.POINT_SEG_D),
+            self.__get_points_of_polygon(SegPatternGenerator.POINT_SEG_E),
+            self.__get_points_of_polygon(SegPatternGenerator.POINT_SEG_F),
+            self.__get_points_of_polygon(SegPatternGenerator.POINT_SEG_G),
+            self.__get_points_of_circle(SegPatternGenerator.POINT_SEG_DOT_CENTER,
                                       SegPatternGenerator.POINT_SEG_DOT_RADIUS),
         ]
 
-    def get_all_matching_points(self):
+    def __get_all_matching_points(self):
         """
         走査する全ての座標を備えたリストを作成する。
         all_points[seven_y][seven_x][seg][pts][xy]
@@ -100,22 +100,13 @@ class SegPatternGenerator:
         ※ptsは各セグメントによって個数が異なる。
         例: all_points[0][0][0][0][0]=1行1列目の7セグのSEG_Aの1番目のy座標
         """
-        seven_seg_points = self.get_seven_seg_points()
+        seven_seg_points = self.__get_seven_seg_points()
         seven_y = []
         for y in range(0, SegPatternGenerator.SCREEN_HEIGHT, SegPatternGenerator.SEG_HEIGHT):
             seven_x = []
             for x in range(0, SegPatternGenerator.SCREEN_WIDTH, SegPatternGenerator.SEG_WIDTH):
                 base = [y, x]
-                seven_seg_points_based = [
-                    np.array(seven_seg_points[0]) + np.array(base),
-                    np.array(seven_seg_points[1]) + np.array(base),
-                    np.array(seven_seg_points[2]) + np.array(base),
-                    np.array(seven_seg_points[3]) + np.array(base),
-                    np.array(seven_seg_points[4]) + np.array(base),
-                    np.array(seven_seg_points[5]) + np.array(base),
-                    np.array(seven_seg_points[6]) + np.array(base),
-                    np.array(seven_seg_points[7]) + np.array(base),
-                ]
+                seven_seg_points_based = [ (np.array(seven_seg_points[i]) + np.array(base)) for i in range(8) ]
                 seven_x.append(seven_seg_points_based)
             seven_y.append(seven_x)
         return seven_y
@@ -123,11 +114,15 @@ class SegPatternGenerator:
     ############################################################
     #  リアルタイム処理
     ############################################################
-    def match(self, img):
-        """画像から7セグパターンとマッチングした結果を返す"""
-        return self.create_seven_seg_pattern(img)
+    def match(self, cv_img):
+        """
+        画像から7セグパターンとマッチングした結果を返す
+        @param cv_img (SCREEN_WIDTH, SCREEN_HEIGHT)のuint8型のNumPy二次元配列
+        @return (SCREEN_WIDTH, SCREEN_HEIGHT)のuint8型のNumPy二次元配列
+        """
+        return self.__create_seven_seg_pattern(cv_img)
     
-    def is_seg_light(self, img, seg_pts):
+    def __is_seg_light(self, img, seg_pts):
         """入力画像imgに対してseg_ptsで指定した座標群が半分以上閾値以上ならTrueを返す"""
         and_count = 0
         for [y, x] in seg_pts:
@@ -138,37 +133,15 @@ class SegPatternGenerator:
         else:
             return False
 
-    def create_seven_seg_pattern(self, img):
+    def __create_seven_seg_pattern(self, img):
         pattern = np.zeros((SegPatternGenerator.SEG_Y_NUM,
                             SegPatternGenerator.SEG_X_NUM), np.uint8)
         for seven_y in range(SegPatternGenerator.SEG_Y_NUM):
             for seven_x in range(SegPatternGenerator.SEG_X_NUM):
-                seg_a_pts   = self.all_matching_points[seven_y][seven_x][0]
-                seg_b_pts   = self.all_matching_points[seven_y][seven_x][1]
-                seg_c_pts   = self.all_matching_points[seven_y][seven_x][2]
-                seg_d_pts   = self.all_matching_points[seven_y][seven_x][3]
-                seg_e_pts   = self.all_matching_points[seven_y][seven_x][4]
-                seg_f_pts   = self.all_matching_points[seven_y][seven_x][5]
-                seg_g_pts   = self.all_matching_points[seven_y][seven_x][6]
-                seg_dot_pts = self.all_matching_points[seven_y][seven_x][7]
-
                 bit_pattern = 0x00
-                if (self.is_seg_light(img, seg_a_pts)):
-                    bit_pattern |= 0x80
-                if (self.is_seg_light(img, seg_b_pts)):
-                    bit_pattern |= 0x40
-                if (self.is_seg_light(img, seg_c_pts)):
-                    bit_pattern |= 0x20
-                if (self.is_seg_light(img, seg_d_pts)):
-                    bit_pattern |= 0x10
-                if (self.is_seg_light(img, seg_e_pts)):
-                    bit_pattern |= 0x08
-                if (self.is_seg_light(img, seg_f_pts)):
-                    bit_pattern |= 0x04
-                if (self.is_seg_light(img, seg_g_pts)):
-                    bit_pattern |= 0x02
-                if (self.is_seg_light(img, seg_dot_pts)):
-                    bit_pattern |= 0x01
+                for seg in range(8):
+                    if (self.__is_seg_light(img, self.all_matching_points[seven_y][seven_x][seg])):
+                        bit_pattern |= (1 << (7 - seg))
                 pattern[seven_y][seven_x] = bit_pattern
         return pattern
 
@@ -182,7 +155,7 @@ class SegPatternGenerator:
                 for seg in range(8):
                     if (bit_pattern & (1 << (7 - seg))):
                         for point in self.all_matching_points[y][x][seg]:
-                            img[point[0], point[1]] = 255
+                            img.itemset((point[0], point[1]), 255)
         return img
 
     def print_seven_seg_pattern(self, pattern):
@@ -193,9 +166,8 @@ class SegPatternGenerator:
             print('')
         print('')
 
-from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageChops
-
 if __name__ == '__main__':
+    from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageChops
     
     spg = SegPatternGenerator()
     font = ImageFont.truetype('C:\Windows\Fonts\meiryob.ttc', 144)
