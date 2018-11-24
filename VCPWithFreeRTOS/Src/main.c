@@ -60,6 +60,8 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
+I2C_HandleTypeDef hi2c1;
+
 SPI_HandleTypeDef hspi2;
 
 UART_HandleTypeDef huart2;
@@ -82,6 +84,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_I2C1_Init(void);
 void StartDefaultTask(void const * argument);
 void StartLedTask(void const * argument);
 void StartVcpDriverTask(void const * argument);
@@ -121,6 +124,74 @@ void vApplicationIdleHook(void)
 {
 	// TODO:
 }
+
+void OLED_WriteCommand(uint8_t command)
+{
+	uint8_t txBuff[2];
+	txBuff[0] = 0x00;
+	txBuff[1] = command;
+	HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)0x3C<<1, txBuff, 2, 0xFFFF);
+	HAL_Delay(10);
+}
+
+void OLED_Init(void)
+{
+	HAL_Delay(100);
+	OLED_WriteCommand(0x01);	// Clear Display
+	HAL_Delay(20);
+	OLED_WriteCommand(0x02);	// Return Home
+	HAL_Delay(2);
+	//OLED_WriteCommand(0x0F);	// Send Display ON Command
+	OLED_WriteCommand(0x0C);	// Send Display ON Command (Blink=0, Cursor=0)
+	HAL_Delay(2);
+	OLED_WriteCommand(0x01);	// Clear Display
+	HAL_Delay(20);
+}	
+
+void OLED_SetContrast(uint8_t brightness)
+{
+	OLED_WriteCommand(0x2A);	// RE=1
+	OLED_WriteCommand(0x79);	// SD=1
+	OLED_WriteCommand(0x81);	// コントラストセット
+	OLED_WriteCommand(brightness);
+	OLED_WriteCommand(0x78);	// SDを0に戻す
+	OLED_WriteCommand(0x28);	// 0x2C=高文字 / 0x28=ノーマル
+	HAL_Delay(100);
+}
+
+void OLED_WriteData(uint8_t data)
+{
+	uint8_t txBuff[2];
+	txBuff[0] = 0x40;
+	txBuff[1] = data;
+	HAL_I2C_Master_Transmit(&hi2c1, (uint16_t)0x3C<<1, txBuff, 2, 0xFFFF);
+	HAL_Delay(1);
+}
+
+void OLED_HelloWorld(void)
+{
+	int i;
+	int len;
+	char str1[16] = "I2C OLED YELLOW";
+	char str2[16];
+	
+	len = strlen(str1);
+	for (i = 0; i < len; i++) {
+		OLED_WriteData(str1[i]);
+	}
+	
+	while (1) {
+		// 2行目の先頭
+		OLED_WriteCommand(0x20 + 0x80);
+		
+		sprintf(str2, "%10u", HAL_GetTick());
+		len = strlen(str2);
+		for (i = 0; i < len; i++) {
+			OLED_WriteData(str2[i]);
+		}
+	}
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -155,7 +226,11 @@ int main(void)
   MX_USART2_UART_Init();
   MX_SPI2_Init();
   MX_ADC1_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
+	OLED_Init();
+	OLED_SetContrast(255);
+	OLED_HelloWorld();
 
   /* USER CODE END 2 */
 
@@ -326,6 +401,26 @@ static void MX_ADC1_Init(void)
   sConfig.Rank = 1;
   sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
+/* I2C1 init function */
+static void MX_I2C1_Init(void)
+{
+
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
