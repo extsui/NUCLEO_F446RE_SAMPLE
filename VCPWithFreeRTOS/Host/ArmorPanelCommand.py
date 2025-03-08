@@ -287,12 +287,12 @@ def exec_wav_spectrum():
     # 仮想COMポートなのでボーレートは無意味
     ser = serial.Serial('COM52', 1000000)
 
-    hamming_win = sp.hamming(FFT_SIZE)
+    hamming_win = np.hamming(FFT_SIZE)
 
     wavefile = wave.open('mtank.wav', 'rb')
     frames = wavefile.readframes(wavefile.getnframes())
     # ±1の範囲に正規化
-    wavedata = sp.fromstring(frames, dtype='int16') / 32768.0
+    wavedata = np.frombuffer(frames, dtype='int16') / 32768.0
     wavefile.rewind()
     
     pa = pyaudio.PyAudio()
@@ -304,7 +304,7 @@ def exec_wav_spectrum():
     
     def callback(in_data, frame_count, time_info, status):
         frames = wavefile.readframes(frame_count)
-        wave = sp.fromstring(frames, dtype='int16')
+        wave = np.frombuffer(frames, dtype='int16')
         
         # 再生音量にもゲイン適用
         gained_wave = wave * gain
@@ -350,7 +350,7 @@ def exec_wav_spectrum():
         
         if (len(fft_input) < FFT_SIZE):
             fft_input = np.zeros(FFT_SIZE)
-        fft_output = sp.fft(fft_input * hamming_win)
+        fft_output = sp.fft.fft(fft_input * hamming_win)
         
         ########################################
         y = []
