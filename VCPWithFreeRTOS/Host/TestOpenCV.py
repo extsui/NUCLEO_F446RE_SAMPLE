@@ -222,16 +222,16 @@ if __name__ == '__main__':
     seven_seg_points = get_seven_seg_points()
     all_matching_points = get_all_matching_points(seven_seg_points)
     
-    font = ImageFont.truetype('C:\Windows\Fonts\meiryob.ttc', 144)
+    font = ImageFont.truetype('C:\Windows\Fonts\meiryob.ttc', 172)
     
     print('Font: Load OK!')
 
     count = 0
-    for i in range(0, 10000, 1):
+    for i in range(0, 4000, 1):
         """加工元画像"""
         pil_img = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT))
         draw = ImageDraw.Draw(pil_img)
-        draw.text(( - (i * 8 % (SCREEN_WIDTH * 4)) + 1000, 10), u'ext@漢字明朝', fill=255, font=font)
+        draw.text(( - (i * 8 % (SCREEN_WIDTH * 6)) + 1000, 5), u'えくすと@漢字明朝', fill=255, font=font)
 
         back_img = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT))
         draw_back = ImageDraw.Draw(back_img)
@@ -249,7 +249,7 @@ if __name__ == '__main__':
         draw_back.ellipse((box_top_xy, box_bottom_xy), fill=fill_color)
         
         pil_img = ImageChops.logical_xor(pil_img, back_img)
-
+        
         """PIL画像からOpenCV画像に変換"""
         pil_img = pil_img.convert('L')
         cv_img = np.asarray(pil_img)
@@ -260,6 +260,8 @@ if __name__ == '__main__':
         """パターン出力結果確認"""
         cv_img = create_matching_image(all_matching_points, pattern)
         cv2.imshow('Title', cv_img)
+
+        #time.sleep(0.016)
 
         k = cv2.waitKey(1)
         if k == 27:
